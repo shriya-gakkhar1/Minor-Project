@@ -2,10 +2,10 @@ const DB_KEY = 'placeflow-db-v1';
 
 const seedData = {
   auth: {
-    role: 'admin',
-    userId: 'admin_01',
-    name: 'TPO Admin',
-    email: 'tpo@placeflow.edu',
+    role: 'guest',
+    userId: null,
+    name: null,
+    email: null,
   },
   students: [
     { id: 'stu_01', name: 'Aarav Sharma', email: 'aarav@college.edu', cgpa: 8.7, branch: 'CSE' },

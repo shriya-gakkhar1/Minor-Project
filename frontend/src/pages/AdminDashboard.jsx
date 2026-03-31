@@ -58,7 +58,9 @@ export default function AdminDashboard() {
     return companies.map((company) => ({
       name: company.name,
       selected: applicationViews.filter(
-        (application) => application.companyId === company.id && application.status === 'Selected',
+        (application) =>
+          application.companyId === company.id &&
+          application.status === 'Selected',
       ).length,
     }));
   }, [companies, applicationViews]);
@@ -67,7 +69,11 @@ export default function AdminDashboard() {
     const latestMap = new Map();
     applicationViews.forEach((application) => {
       const previous = latestMap.get(application.studentId);
-      if (!previous || new Date(previous.createdAt).getTime() < new Date(application.createdAt).getTime()) {
+      if (
+        !previous ||
+        new Date(previous.createdAt).getTime() <
+          new Date(application.createdAt).getTime()
+      ) {
         latestMap.set(application.studentId, application);
       }
     });
@@ -75,21 +81,31 @@ export default function AdminDashboard() {
   }, [applicationViews]);
 
   const filteredStudents = useMemo(() => {
-    const rows = selectedCompanyFilter === 'all'
-      ? studentPlacementRows
-      : studentPlacementRows.filter((student) => student.company === selectedCompanyFilter);
+    const rows =
+      selectedCompanyFilter === 'all'
+        ? studentPlacementRows
+        : studentPlacementRows.filter(
+            (student) => student.company === selectedCompanyFilter,
+          );
 
     return rows.map((row) => ({
       ...row,
-      latestApplicationId: latestApplicationByStudent.get(row.id)?.id || null,
+      latestApplicationId:
+        latestApplicationByStudent.get(row.id)?.id || null,
     }));
-  }, [selectedCompanyFilter, studentPlacementRows, latestApplicationByStudent]);
+  }, [
+    selectedCompanyFilter,
+    studentPlacementRows,
+    latestApplicationByStudent,
+  ]);
 
   const workflowCounts = useMemo(
     () =>
       WORKFLOW_STAGES.map((stage) => ({
         stage,
-        count: applicationViews.filter((application) => application.status === stage).length,
+        count: applicationViews.filter(
+          (application) => application.status === stage,
+        ).length,
       })),
     [applicationViews],
   );
@@ -103,18 +119,27 @@ export default function AdminDashboard() {
       label: 'Status',
       render: (value, row) => {
         if (!row.latestApplicationId) {
-          return <span className='text-xs text-slate-500'>No application</span>;
+          return (
+            <span className="text-xs text-slate-500">
+              No application
+            </span>
+          );
         }
 
         const options = [value, ...getWorkflowTransitions(value)].filter(
-          (status, index, array) => array.indexOf(status) === index,
+          (status, index, array) =>
+            array.indexOf(status) === index,
         );
 
         return (
           <select
             value={value}
-            onChange={(event) => updateStatus(row.latestApplicationId, event.target.value)}
-            className={`rounded-lg border px-2 py-1 text-xs font-semibold outline-none ${toneClasses(statusTone(value))}`}
+            onChange={(event) =>
+              updateStatus(row.latestApplicationId, event.target.value)
+            }
+            className={`rounded-lg border px-2 py-1 text-xs font-semibold outline-none ${toneClasses(
+              statusTone(value),
+            )}`}
           >
             {options.map((option) => (
               <option key={option} value={option}>
@@ -129,14 +154,14 @@ export default function AdminDashboard() {
 
   if (!students.length && !companies.length) {
     return (
-      <PageContainer className='space-y-5'>
-        <Skeleton className='h-16 w-full' />
-        <div className='grid gap-4 sm:grid-cols-3'>
-          <Skeleton className='h-28 w-full' />
-          <Skeleton className='h-28 w-full' />
-          <Skeleton className='h-28 w-full' />
+      <PageContainer className="space-y-5">
+        <Skeleton className="h-16 w-full" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-28 w-full" />
         </div>
-        <Skeleton className='h-[320px] w-full' />
+        <Skeleton className="h-[320px] w-full" />
       </PageContainer>
     );
   }
@@ -144,10 +169,17 @@ export default function AdminDashboard() {
   if (!students.length) {
     return (
       <PageContainer>
-        <div className='rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center'>
-          <h3 className='text-lg font-semibold text-slate-900'>No student data yet</h3>
-          <p className='mt-2 text-sm text-slate-500'>Start from migration to import CSV or Google Sheets data.</p>
-          <Button className='mt-4' onClick={() => navigate('/migration')}>
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+          <h3 className="text-lg font-semibold text-slate-900">
+            No student data yet
+          </h3>
+          <p className="mt-2 text-sm text-slate-500">
+            Start from migration to import CSV or Google Sheets data.
+          </p>
+          <Button
+            className="mt-4"
+            onClick={() => navigate('/migration')}
+          >
             Open Migration
           </Button>
         </div>
@@ -156,36 +188,40 @@ export default function AdminDashboard() {
   }
 
   return (
-    <PageContainer className='space-y-6'>
+    <PageContainer className="space-y-6">
       <SectionHeader
-        title='Placement Overview'
-        subtitle='Workflow-driven placement control center'
+        title="Placement Overview"
+        subtitle="Workflow-driven placement control center"
         action={
-          <div className='flex items-center gap-2'>
+          <div className="flex items-center gap-2">
             <select
               value={selectedCompanyFilter}
-              onChange={(event) => setSelectedCompanyFilter(event.target.value)}
-              className='h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100'
+              onChange={(event) =>
+                setSelectedCompanyFilter(event.target.value)
+              }
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
             >
-              <option value='all'>All Companies</option>
+              <option value="all">All Companies</option>
               {companies.map((company) => (
                 <option key={company.id} value={company.name}>
                   {company.name}
                 </option>
               ))}
             </select>
-            <Button onClick={() => navigate('/add-company')}>Add Company</Button>
+            <Button onClick={() => navigate('/add-company')}>
+              Add Company
+            </Button>
           </div>
         }
       />
 
-      <div className='grid gap-4 sm:grid-cols-3'>
-        <StatCard label='Total Students' value={students.length} icon={<GraduationCap className='h-5 w-5' />} />
-        <StatCard label='Selected Students' value={selectedCount} icon={<UserCheck className='h-5 w-5' />} />
-        <StatCard label='Active Drives' value={activeDrives} icon={<BriefcaseBusiness className='h-5 w-5' />} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Total Students" value={students.length} icon={<GraduationCap className="h-5 w-5" />} />
+        <StatCard label="Selected Students" value={selectedCount} icon={<UserCheck className="h-5 w-5" />} />
+        <StatCard label="Active Drives" value={activeDrives} icon={<BriefcaseBusiness className="h-5 w-5" />} />
       </div>
 
-      <Suspense fallback={<Skeleton className='h-[320px] w-full' />}>
+      <Suspense fallback={<Skeleton className="h-[320px] w-full" />}>
         <AdminInsightsCharts
           placementsByCompany={placementsByCompany}
           companyBarData={companyBarData}
@@ -194,21 +230,35 @@ export default function AdminDashboard() {
         />
       </Suspense>
 
-      <div className='rounded-2xl border border-slate-200 bg-white p-5'>
-        <SectionHeader title='Workflow Visualization' subtitle='Applied -> Shortlisted -> Interview -> Selected / Rejected' />
-        <div className='grid gap-3 md:grid-cols-5'>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <SectionHeader
+          title="Workflow Visualization"
+          subtitle="Applied → Shortlisted → Interview → Selected / Rejected"
+        />
+        <div className="grid gap-3 md:grid-cols-5">
           {workflowCounts.map((item) => (
-            <div key={item.stage} className='rounded-xl border border-slate-200 bg-slate-50 p-3'>
-              <p className='text-xs font-medium uppercase tracking-wide text-slate-500'>{item.stage}</p>
-              <p className='mt-2 text-xl font-semibold text-slate-900'>{item.count}</p>
+            <div key={item.stage} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                {item.stage}
+              </p>
+              <p className="mt-2 text-xl font-semibold text-slate-900">
+                {item.count}
+              </p>
             </div>
           ))}
         </div>
       </div>
 
       <div>
-        <SectionHeader title='Students' subtitle='Filtered student list with admin-safe workflow transitions' />
-        <DataTable columns={tableColumns} rows={filteredStudents} emptyText='No students in this filter.' />
+        <SectionHeader
+          title="Students"
+          subtitle="Filtered student list with admin-safe workflow transitions"
+        />
+        <DataTable
+          columns={tableColumns}
+          rows={filteredStudents}
+          emptyText="No students in this filter."
+        />
       </div>
     </PageContainer>
   );

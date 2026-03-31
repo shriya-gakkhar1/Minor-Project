@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { BarChart3, Building2, DatabaseBackup, LayoutDashboard, PlusCircle, Users } from 'lucide-react';
+import { BarChart3, Building2, DatabaseBackup, LayoutDashboard, PlusCircle, Users, User } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 const adminNav = [
@@ -12,9 +12,11 @@ const adminNav = [
 
 const studentNav = [
   { to: '/student', label: 'Student Home', icon: LayoutDashboard },
+  { to: '/student/profile', label: 'Profile', icon: User }, // ✅ ADDED
 ];
 
 export default function Sidebar({ role }) {
+  // role is 'admin' for TPO, 'student' for students
   const navItems = role === 'admin' ? adminNav : studentNav;
 
   return (
@@ -39,7 +41,9 @@ export default function Sidebar({ role }) {
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors',
-                  isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                  isActive
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                 )
               }
             >

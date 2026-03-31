@@ -1,4 +1,4 @@
-import { loadDb } from './dbService';
+import { loadDb, saveDb } from './dbService';
 
 export function listStudents() {
   return loadDb().students;
@@ -6,6 +6,20 @@ export function listStudents() {
 
 export function getStudentById(studentId) {
   return loadDb().students.find((item) => item.id === studentId) || null;
+}
+
+export function updateStudentProfile(studentId, updates) {
+  const db = loadDb();
+  const studentIndex = db.students.findIndex((item) => item.id === studentId);
+
+  if (studentIndex === -1) {
+    return { ok: false, error: 'Student not found' };
+  }
+
+  db.students[studentIndex] = { ...db.students[studentIndex], ...updates };
+  saveDb(db);
+
+  return { ok: true, student: db.students[studentIndex] };
 }
 
 export function enrichStudentsWithPlacement(students, applications, companies) {
