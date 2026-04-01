@@ -1,4 +1,4 @@
-import { Bell, LogOut, Search } from 'lucide-react';
+import { LogOut, RefreshCw, Search } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../services/authService';
 import Button from './Button';
@@ -13,7 +13,7 @@ const pageTitles = {
   '/reports': 'Reporting & Statistics',
 };
 
-export default function Topbar({ role, auth }) {
+export default function Topbar({ role, auth, dataMode, lastRefreshedAt, onModeChange, onRefresh }) {
   const location = useLocation();
   const navigate = useNavigate();
   const title = pageTitles[location.pathname] || 'PlaceFlow';
@@ -29,7 +29,7 @@ export default function Topbar({ role, auth }) {
         <div>
           <h1 className='text-lg font-semibold text-slate-900'>{title}</h1>
           <p className='text-xs text-slate-500'>
-            Signed in as {auth?.name || 'Demo User'} ({role === 'admin' ? 'TPO' : 'Student'})
+            Signed in as {auth?.name || 'Demo User'} ({role === 'admin' ? 'TPO' : 'Student'}) | Last sync {new Date(lastRefreshedAt).toLocaleTimeString()}
           </p>
         </div>
 
@@ -40,6 +40,21 @@ export default function Topbar({ role, auth }) {
               <Input className='pl-9' placeholder='Search students or companies' />
             </div>
           </div>
+
+          <select
+            value={dataMode}
+            onChange={(event) => onModeChange(event.target.value)}
+            className='h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100'
+            title='Data mode'
+          >
+            <option value='offline'>Offline</option>
+            <option value='online'>Online</option>
+          </select>
+
+          <Button variant='secondary' size='sm' onClick={onRefresh}>
+            <RefreshCw className='h-4 w-4' />
+            Refresh
+          </Button>
 
           <button
             onClick={handleLogout}

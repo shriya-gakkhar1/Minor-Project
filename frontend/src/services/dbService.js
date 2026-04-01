@@ -1,4 +1,8 @@
+import { getMode, isOnlineMode } from './modeService';
+import { getSupabaseClient, isSupabaseConfigured } from './supabaseService';
+
 const DB_KEY = 'placeflow-db-v1';
+const SUPABASE_STATE_ID = 'global';
 
 const seedData = {
   auth: {
@@ -50,6 +54,9 @@ export function loadDb() {
 
 export function saveDb(nextState) {
   localStorage.setItem(DB_KEY, JSON.stringify(nextState));
+  if (isOnlineMode()) {
+    void pushStateToSupabase(nextState);
+  }
   return clone(nextState);
 }
 
@@ -60,4 +67,54 @@ export function resetDb() {
 
 export function makeId(prefix) {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function getDataMode() {
+  return getMode();
+}
+
+export async function hydrateFromOnline() {
+  if (!isOnlineMode() || !isSupabaseConfigured()) return loadDb();
+  const supabase = getSupabaseClient();
+  if (!supabase) return loadDb();
+
+  try {
+    const { data, error } = await supabase
+      .from('placeflow_state')
+      .select('payload')
+      .eq('id', SUPABASE_STATE_ID)
+      .single();
+
+    if (error || !data?.payload) {
+      return loadDb();
+    }
+
+    const next = {
+      auth: data.payload.auth || clone(seedData.auth),
+      students: Array.isArray(data.payload.students) ? data.payload.students : clone(seedData.students),
+      companies: Array.isArray(data.payload.companies) ? data.payload.companies : clone(seedData.companies),
+      applications: Array.isArray(data.payload.applications) ? data.payload.applications : clone(seedData.applications),
+    };
+
+    localStorage.setItem(DB_KEY, JSON.stringify(next));
+    return clone(next);
+  } catch {
+    return loadDb();
+  }
+}
+
+export async function pushStateToSupabase(state) {
+  if (!isSupabaseConfigured()) return;
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+
+  try {
+    await supabase.from('placeflow_state').upsert({
+      id: SUPABASE_STATE_ID,
+      payload: state,
+      updated_at: new Date().toISOString(),
+    });
+  } catch {
+    // Keep offline behavior intact if sync fails.
+  }
 }

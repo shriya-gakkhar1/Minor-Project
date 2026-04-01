@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import PageContainer from '../components/PageContainer';
@@ -13,6 +13,7 @@ export default function StudentDashboard() {
   const companies = usePlacementStore((state) => state.companies);
   const applicationViews = usePlacementStore((state) => state.applicationViews);
   const applyToCompany = usePlacementStore((state) => state.applyToCompany);
+  const [applyMessage, setApplyMessage] = useState('');
 
   const currentStudent = students.find((student) => student.id === currentStudentId);
 
@@ -45,6 +46,15 @@ export default function StudentDashboard() {
   };
   const currentStepIndex = statusToStepIndex[highlightedApplication?.status] ?? 0;
 
+  const eligibleCompanies = ongoingDrives.filter((drive) => drive.eligible);
+  const ineligibleCompanies = ongoingDrives.filter((drive) => !drive.eligible);
+
+  const handleApply = (companyId) => {
+    const result = applyToCompany(companyId);
+    setApplyMessage(result?.ok ? 'Application submitted successfully.' : result?.error || 'Unable to apply.');
+    setTimeout(() => setApplyMessage(''), 2200);
+  };
+
   return (
     <PageContainer className='space-y-6'>
       <SectionHeader
@@ -58,9 +68,10 @@ export default function StudentDashboard() {
       </div>
 
       <Card>
-        <SectionHeader title='Ongoing Drives' subtitle='Eligibility is checked from your profile and company criteria' />
+        <SectionHeader title='Eligible Companies' subtitle='Only eligible drives are highlighted for quick action' />
+        {applyMessage ? <p className='mb-2 text-sm text-indigo-700'>{applyMessage}</p> : null}
         <div className='grid gap-3 md:grid-cols-2'>
-          {ongoingDrives.map((drive) => (
+          {eligibleCompanies.map((drive) => (
             <div key={drive.id} className='rounded-xl border border-slate-200 p-4'>
               <div className='flex items-start justify-between gap-2'>
                 <div>
@@ -77,7 +88,7 @@ export default function StudentDashboard() {
               <div className='mt-3'>
                 <Button
                   size='sm'
-                  onClick={() => applyToCompany(drive.id)}
+                  onClick={() => handleApply(drive.id)}
                   disabled={!drive.eligible || drive.hasApplied}
                 >
                   {drive.hasApplied ? 'Applied' : drive.eligible ? 'Apply' : 'Not Eligible'}
@@ -86,6 +97,19 @@ export default function StudentDashboard() {
             </div>
           ))}
         </div>
+
+        {ineligibleCompanies.length > 0 ? (
+          <div className='mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3'>
+            <p className='mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500'>Not eligible now</p>
+            <div className='flex flex-wrap gap-2'>
+              {ineligibleCompanies.map((company) => (
+                <span key={company.id} className='rounded-full border border-slate-300 bg-slate-100 px-2 py-1 text-xs text-slate-500'>
+                  {company.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </Card>
 
       <Card>

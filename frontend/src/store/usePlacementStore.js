@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { createApplication, listApplications, updateApplicationStatus } from '../services/applicationService';
 import { getSession, loginAs } from '../services/authService';
 import { createCompany, listCompanies } from '../services/companyService';
+import { getDataMode, hydrateFromOnline } from '../services/dbService';
 import { importMigrationData, normalizeMigrationRows } from '../services/migrationService';
+import { setMode } from '../services/modeService';
 import { listStudents, enrichStudentsWithPlacement } from '../services/studentService';
 
 function buildViewState() {
@@ -30,6 +32,8 @@ function buildViewState() {
   return {
     auth,
     role: auth.role,
+    dataMode: getDataMode(),
+    lastRefreshedAt: new Date().toISOString(),
     currentStudentId: auth.role === 'student' ? auth.userId : students[0]?.id || null,
     students,
     companies,
@@ -47,12 +51,33 @@ export const usePlacementStore = create((set, get) => ({
   migrationErrors: [],
 
   refreshData: () => {
-    set((state) => ({ ...state, ...buildViewState() }));
+    set((state) => ({ ...state, ...buildViewState(), lastRefreshedAt: new Date().toISOString() }));
+  },
+
+  hydrateOnlineMode: async () => {
+    await hydrateFromOnline();
+    get().refreshData();
+  },
+
+  setDataMode: async (mode) => {
+    const nextMode = setMode(mode);
+    if (nextMode === 'online') {
+      await get().hydrateOnlineMode();
+    }
+    get().refreshData();
   },
 
   loginAsRole: (role) => {
     loginAs(role);
     get().refreshData();
+  },
+
+  triggerRealtimeRefresh: async () => {
+    if (get().dataMode === 'online') {
+      await get().hydrateOnlineMode();
+    } else {
+      get().refreshData();
+    }
   },
 
   setSelectedCompanyFilter: (selectedCompanyFilter) => set({ selectedCompanyFilter }),
@@ -95,6 +120,7 @@ export const usePlacementStore = create((set, get) => ({
     importMigrationData({
       students: (students || []).length ? students : normalized.students,
       companies: (companies || []).length ? companies : normalized.companies,
+      applications: normalized.applications,
     });
 
     set({

@@ -17,10 +17,16 @@ export default function MigrationPage() {
   const [sheetUrl, setSheetUrl] = useState('');
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState('');
+  const [summary, setSummary] = useState({ students: 0, companies: 0, applications: 0 });
 
   const parseCsvFile = (file) => {
     parseCsvContent(file, (rows) => {
-      runMigrationImportFromRows(rows, file.name);
+      const normalized = runMigrationImportFromRows(rows, file.name);
+      setSummary({
+        students: normalized.students.length,
+        companies: normalized.companies.length,
+        applications: normalized.applications.length,
+      });
     });
   };
 
@@ -29,7 +35,12 @@ export default function MigrationPage() {
       setSheetLoading(true);
       setSheetError('');
       const payload = await importRowsFromGoogleSheetUrl(sheetUrl);
-      runMigrationImportFromRows(payload.rows, payload.sourceName);
+      const normalized = runMigrationImportFromRows(payload.rows, payload.sourceName);
+      setSummary({
+        students: normalized.students.length,
+        companies: normalized.companies.length,
+        applications: normalized.applications.length,
+      });
     } catch (error) {
       setSheetError(error.message || 'Failed to import sheet data.');
     } finally {
@@ -98,6 +109,12 @@ export default function MigrationPage() {
           title='Preview'
           subtitle={migrationSource ? `Showing normalized data from ${migrationSource}` : 'Upload data to preview before working with dashboards'}
         />
+
+        <div className='mb-4 grid gap-3 md:grid-cols-3'>
+          <div className='rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm'>Students: {summary.students}</div>
+          <div className='rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm'>Companies: {summary.companies}</div>
+          <div className='rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm'>Applications: {summary.applications}</div>
+        </div>
 
         {migrationErrors.length > 0 ? (
           <div className='mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700'>
