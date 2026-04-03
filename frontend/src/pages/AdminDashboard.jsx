@@ -126,7 +126,13 @@ export default function AdminDashboard() {
       .sort((a, b) => b.applicants - a.applicants);
   }, [applicationViews, companies]);
 
-  const bestCompany = companyMetrics[0]?.name || 'N/A';
+  const bestCompany = useMemo(() => {
+    // Find best company excluding "Unassigned" or null company names
+    const validCompanies = companyMetrics.filter(
+      (company) => company.name && company.name.trim() !== '' && company.name !== 'Unassigned'
+    );
+    return validCompanies.length > 0 ? validCompanies[0].name : 'N/A';
+  }, [companyMetrics]);
   const avgSelectionRate = applicationViews.length ? ((selectedCount / applicationViews.length) * 100).toFixed(1) : '0.0';
 
   const placementsByCompany = useMemo(() => {

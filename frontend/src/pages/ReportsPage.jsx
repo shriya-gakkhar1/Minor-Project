@@ -56,7 +56,11 @@ export default function ReportsPage() {
       const company = companies.find((c) => c.id === app.companyId);
       return company?.name;
     }).filter(Boolean));
-    return ['All', ...Array.from(companys)];
+    // Include 'Unassigned' if it exists in data
+    const hasUnassigned = applications.some((app) => !app.companyId || !companies.find((c) => c.id === app.companyId));
+    const options = ['All', ...Array.from(companys)];
+    if (hasUnassigned) options.push('Unassigned');
+    return options;
   }, [applications, companies]);
 
   const statusOptions = ['All', 'Applied', 'Shortlisted', 'Rejected', 'Placed'];
@@ -94,6 +98,9 @@ export default function ReportsPage() {
     // Company filter (applied regardless)
     if (filters.company !== 'All') {
       data = data.filter((row) => {
+        if (filters.company === 'Unassigned') {
+          return !row.companyId || !companies.find((c) => c.id === row.companyId);
+        }
         const company = companies.find((c) => c.id === row.companyId);
         return company?.name === filters.company;
       });
@@ -120,14 +127,16 @@ export default function ReportsPage() {
     if (!filteredData || filteredData.length === 0) return [];
 
     if (chartType === 'bar' || chartType === 'line') {
-      // Company vs Count
+      // Company vs Count (including Unassigned)
       const companyMap = {};
       filteredData.forEach((row) => {
-        if (!row.companyId) return;
-        const company = companies.find((c) => c.id === row.companyId);
-        const name = company?.name || 'Unknown';
+        let name = 'Unassigned';
+        if (row.companyId) {
+          const company = companies.find((c) => c.id === row.companyId);
+          name = company?.name || 'Unassigned';
+        }
         if (!companyMap[name]) {
-          companyMap[name] = { name, count: 0, placed: 0 };
+          companyMap[name] = { name, count: 0, placed: 0, isUnassigned: name === 'Unassigned' };
         }
         companyMap[name].count += 1;
         if (row.status === 'placed') companyMap[name].placed += 1;
@@ -205,20 +214,35 @@ export default function ReportsPage() {
       });
 
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgData = canvas.toDataURL('image/png');
-      const imgWidth = 210; // A4 width in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let yPos = 15;
 
-      pdf.addPage();
-      pdf.setFontSize(18);
-      pdf.text('Placement Report', 20, 20);
+      // Title
+      pdf.setFontSize(20);
+      pdf.setTextColor(25, 25, 112); // Dark indigo
+      pdf.text('Placement Analytics Report', 20, yPos);
+      yPos += 12;
 
-      // Add filter summary
-      pdf.setFontSize(11);
-      let yPos = 35;
-      pdf.text('Filters Applied:', 20, yPos);
+      // Report metadata
+      pdf.setFontSize(9);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Generated: ${new Date().toLocaleString()}`, 20, yPos);
       yPos += 8;
 
+      // Separator line
+      pdf.setDrawColor(200, 200, 200);
+      pdf.line(20, yPos, 190, yPos);
+      yPos += 8;
+
+      // Filters section
+      pdf.setFontSize(11);
+      pdf.setTextColor(0, 0, 0);
+      pdf.setFont(undefined, 'bold');
+      pdf.text('Active Filters:', 20, yPos);
+      yPos += 7;
+
+      pdf.setFont(undefined, 'normal');
+      pdf.setFontSize(10);
+      
       const filterSummary = [];
       if (filters.student) {
         const studentName = students.find((s) => s.id === filters.student)?.name;
@@ -231,21 +255,95 @@ export default function ReportsPage() {
       if (filters.company !== 'All') filterSummary.push(`Company: ${filters.company}`);
       if (filters.status !== 'All') filterSummary.push(`Status: ${filters.status}`);
 
-      filterSummary.forEach((text) => {
-        pdf.text(`• ${text}`, 25, yPos);
+      if (filterSummary.length === 0) {
+        pdf.text('No filters applied (showing all data)', 25, yPos);
         yPos += 6;
-      });
+      } else {
+        filterSummary.forEach((text) => {
+          pdf.text(`• ${text}`, 25, yPos);
+          yPos += 6;
+        });
+      }
 
-      yPos += 5;
-      pdf.setFontSize(10);
+      yPos += 4;
+      pdf.setFont(undefined, 'bold');
       pdf.text(`Total Records: ${filteredData.length}`, 20, yPos);
-      yPos += 8;
+      yPos += 10;
 
-      // Add chart image
-      const maxHeight = 100;
-      const chartImgHeight = Math.min(imgHeight, maxHeight);
-      const chartImgWidth = (imgWidth * chartImgHeight) / imgHeight;
-      pdf.addImage(imgData, 'PNG', (imgWidth - chartImgWidth) / 2, yPos, chartImgWidth, chartImgHeight);
+      // Chart image with better scaling
+      const chartImg = canvas.toDataURL('image/png');
+      const maxWidth = 170; // Leave margins
+      const maxHeight = 80;
+      const imgWidth = Math.min(maxWidth, (canvas.width * maxHeight) / canvas.height);
+      const imgHeight = (imgWidth * canvas.height) / canvas.width;
+      const xCenter = (210 - imgWidth) / 2;
+      
+      if (yPos + imgHeight < 260) {
+        pdf.addImage(chartImg, 'PNG', xCenter, yPos, imgWidth, imgHeight);
+        yPos += imgHeight + 10;
+      } else {
+        pdf.addPage();
+        yPos = 20;
+        pdf.addImage(chartImg, 'PNG', xCenter, yPos, imgWidth, imgHeight);
+        yPos += imgHeight + 10;
+      }
+
+      // Table data on new page if needed
+      if (tableData.length > 0 && yPos > 200) {
+        pdf.addPage();
+        yPos = 20;
+      }
+
+      // Table header
+      if (tableData.length > 0) {
+        pdf.setFontSize(11);
+        pdf.setFont(undefined, 'bold');
+        pdf.setTextColor(25, 25, 112);
+        pdf.text('Data Summary', 20, yPos);
+        yPos += 8;
+
+        // Simple table - just show first 10 rows
+        pdf.setFontSize(8);
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont(undefined, 'normal');
+        
+        const displayRows = tableData.slice(0, 10);
+        const colWidths = [40, 20, 20, 50, 30];
+        const headers = ['Student', 'Branch', 'CGPA', 'Company', 'Status'];
+        
+        // Headers
+        pdf.setFillColor(240, 240, 240);
+        let xPos = 20;
+        headers.forEach((header, i) => {
+          pdf.text(header, xPos, yPos, { maxWidth: colWidths[i], align: 'left' });
+          xPos += colWidths[i];
+        });
+        yPos += 6;
+        
+        // Rows
+        displayRows.forEach((row) => {
+          xPos = 20;
+          const values = [
+            row.name || '',
+            row.branch || '',
+            row.cgpa?.toFixed(2) || '',
+            row.companyName || '',
+            row.statusDisplay || ''
+          ];
+          values.forEach((val, i) => {
+            pdf.text(String(val).substring(0, 15), xPos, yPos, { maxWidth: colWidths[i], align: 'left' });
+            xPos += colWidths[i];
+          });
+          yPos += 5;
+        });
+        
+        if (tableData.length > 10) {
+          yPos += 3;
+          pdf.setFontSize(8);
+          pdf.setTextColor(100, 100, 100);
+          pdf.text(`... and ${tableData.length - 10} more records`, 20, yPos);
+        }
+      }
 
       pdf.save(`placement-report-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
@@ -416,12 +514,13 @@ export default function ReportsPage() {
       {/* Charts Section */}
       {filteredData.length > 0 ? (
         <Card className='mb-6'>
-          <div id='report-content' style={{ width: '100%', height: '400px', minHeight: '400px' }}>
+          <h3 className='text-lg font-semibold text-slate-900 mb-4'>Chart Analysis</h3>
+          <div id='report-content' style={{ width: '100%', height: '450px', minHeight: '450px' }}>
             <ResponsiveContainer width='100%' height='100%' minHeight={0}>
               {chartType === 'bar' && (
-                <BarChart data={chartData}>
+                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
                   <CartesianGrid strokeDasharray='3 3' />
-                  <XAxis dataKey='name' />
+                  <XAxis dataKey='name' angle={-45} textAnchor='end' height={100} />
                   <YAxis />
                   <Tooltip />
                   <Legend />
@@ -431,9 +530,9 @@ export default function ReportsPage() {
               )}
 
               {chartType === 'line' && (
-                <LineChart data={chartData}>
+                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
                   <CartesianGrid strokeDasharray='3 3' />
-                  <XAxis dataKey='name' />
+                  <XAxis dataKey='name' angle={-45} textAnchor='end' height={100} />
                   <YAxis />
                   <Tooltip />
                   <Legend />
@@ -450,12 +549,12 @@ export default function ReportsPage() {
                     cy='50%'
                     labelLine={false}
                     label={({ name, value }) => `${name}: ${value}`}
-                    outerRadius={110}
+                    outerRadius={120}
                     fill='#8884d8'
                     dataKey='value'
                   >
                     {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={entry.isUnassigned ? '#ef4444' : COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -463,9 +562,9 @@ export default function ReportsPage() {
               )}
 
               {chartType === 'area' && (
-                <AreaChart data={chartData}>
+                <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 60 }}>
                   <CartesianGrid strokeDasharray='3 3' />
-                  <XAxis dataKey='name' />
+                  <XAxis dataKey='name' angle={-45} textAnchor='end' height={100} />
                   <YAxis />
                   <Tooltip />
                   <Area
