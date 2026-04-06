@@ -182,6 +182,7 @@ export default function Login() {
                 <p className='flex items-center gap-2'><CheckCircle2 className='h-4 w-4 text-teal-600' />Student placement predictor</p>
                 <p className='flex items-center gap-2'><CheckCircle2 className='h-4 w-4 text-teal-600' />Workflow and report automation</p>
                 <p className='flex items-center gap-2'><CheckCircle2 className='h-4 w-4 text-teal-600' />Resume-assisted recommendations</p>
+                <p className='flex items-center gap-2'><CheckCircle2 className='h-4 w-4 text-teal-600' />Resume Studio: OCR + ATS + PDF export</p>
               </div>
             </div>
 
@@ -202,7 +203,7 @@ export default function Login() {
               <p className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700'>1. Sign in as TPO or Student</p>
               <p className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700'>2. Use predictor and insights views</p>
               <p className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700'>3. Track pipeline and status flow</p>
-              <p className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700'>4. Generate actionable reports</p>
+              <p className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700'>4. Generate ATS-ready resumes and reports</p>
             </div>
           </div>
         </section>

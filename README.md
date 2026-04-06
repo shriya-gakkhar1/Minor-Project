@@ -21,8 +21,9 @@ This version ships the full Phase 1 to Phase 3 execution track:
 - donor-inspired prediction contracts and service architecture
 - campus predictor page with CSV input, quality warnings, and analytics outputs
 - student predictor page with guided flow, readiness meter, confidence band, and action-first recommendations
+- resume studio pipeline with OCR-aware resume ingestion, ATS optimization, Reactive Resume JSON export, and PDF download
 - insights lab with branch, status, and company analytics
-- backend ML-style routes for campus predict, student predict, resume parse, and skill recommendations
+- backend ML-style routes for campus predict, student predict, ATS scoring, resume optimization, resume parse, and skill recommendations
 - backend-first prediction behavior with graceful frontend fallbacks
 - full design polish across shell, dashboards, tables, and forms
 - lightweight motion system tuned for performance and accessibility
@@ -37,6 +38,7 @@ This version ships the full Phase 1 to Phase 3 execution track:
 - insights lab
 - campus predictor
 - student predictor
+- resume studio
 - reporting and export
 
 ### Student
@@ -44,6 +46,7 @@ This version ships the full Phase 1 to Phase 3 execution track:
 - student workspace
 - eligible drives and application status tracker
 - student predictor and recommendation flow
+- resume studio for ATS-ready resume regeneration
 - profile management
 
 ## Tech Stack
@@ -73,7 +76,41 @@ This version ships the full Phase 1 to Phase 3 execution track:
 - POST /api/ml/campus-predict
 - POST /api/ml/student-predict
 - POST /api/ml/resume-parse
+- POST /api/ml/ats-score
+- POST /api/ml/resume-optimize
 - POST /api/ml/recommend-skills
+
+## Resume Studio OSS Pipeline
+
+Resume Studio combines these open-source components in one flow:
+
+- PaddleOCR (Apache-2.0): OCR extraction for scanned/older resumes
+- Resume-Matcher-inspired ATS logic (Apache-2.0 donor reference): keyword and semantic scoring
+- Reactive Resume-compatible JSON export (MIT ecosystem): builder-ready resume payload
+
+Flow:
+
+1. Upload old resume (PDF/DOCX/TXT/image)
+2. Extract text (pdf-parse/mammoth, or PaddleOCR where applicable)
+3. Compare against JD and target role
+4. Generate optimized resume content (summary, bullets, skills)
+5. Download Reactive Resume JSON and polished PDF
+
+### Optional: Enable PaddleOCR Locally
+
+By default, the app works without OCR using text extractors.
+To enable PaddleOCR for scanned resumes, install Python dependencies and set env vars before starting backend:
+
+```bash
+pip install paddleocr
+set ENABLE_PADDLE_OCR=true
+set PADDLE_PYTHON_CMD=python
+```
+
+Notes:
+
+- OCR runs through backend script at backend/tools/paddle_ocr_extract.py
+- For PDF files with very low extracted text, OCR is attempted when enabled
 
 ## Local Setup
 

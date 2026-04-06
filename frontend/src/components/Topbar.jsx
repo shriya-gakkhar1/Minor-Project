@@ -1,4 +1,4 @@
-import { LogOut, RefreshCw, Search } from 'lucide-react';
+import { LogOut, Menu, RefreshCw, Search } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../services/authService';
 import Button from './Button';
@@ -11,13 +11,15 @@ const pageTitles = {
   '/insights-lab': 'Insights Lab',
   '/campus-predictor': 'Campus Predictor',
   '/student-predictor': 'Student Predictor',
+  '/resume-studio': 'Resume Studio',
   '/add-company': 'Add Company',
   '/student': 'Student Workspace',
   '/student/predictor': 'Student Placement Analyzer',
+  '/student/resume-studio': 'Resume Studio',
   '/reports': 'Reporting & Statistics',
 };
 
-export default function Topbar({ role, auth, dataMode, lastRefreshedAt, onModeChange, onRefresh }) {
+export default function Topbar({ role, auth, dataMode, lastRefreshedAt, onModeChange, onRefresh, onMenuToggle }) {
   const location = useLocation();
   const navigate = useNavigate();
   const title = pageTitles[location.pathname] || 'PlaceFlow';
@@ -47,6 +49,15 @@ export default function Topbar({ role, auth, dataMode, lastRefreshedAt, onModeCh
         </div>
 
         <div className='flex items-center gap-2'>
+          <button
+            type='button'
+            onClick={onMenuToggle}
+            className='inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-50 lg:hidden'
+            title='Explore features'
+          >
+            <Menu className='h-4 w-4' />
+          </button>
+
           <div className='hidden w-64 md:block'>
             <div className='relative'>
               <Search className='pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400' />

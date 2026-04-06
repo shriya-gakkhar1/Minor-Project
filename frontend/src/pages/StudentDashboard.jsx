@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { FilePenLine } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import PageContainer from '../components/PageContainer';
@@ -8,6 +10,7 @@ import { STUDENT_TRACK_STAGES } from '../lib/utils';
 import { usePlacementStore } from '../store/usePlacementStore';
 
 export default function StudentDashboard() {
+  const navigate = useNavigate();
   const currentStudentId = usePlacementStore((state) => state.currentStudentId);
   const students = usePlacementStore((state) => state.students);
   const companies = usePlacementStore((state) => state.companies);
@@ -90,6 +93,20 @@ export default function StudentDashboard() {
         <StatCard label='Applications' value={myApplications.length} helper='Total submitted forms' />
         <StatCard label='Ongoing Drives' value={ongoingDrives.length} helper='Open opportunities this cycle' />
       </div>
+
+      <Card className='border-teal-100 bg-gradient-to-br from-teal-50 to-white'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <div>
+            <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>Resume Upgrade</p>
+            <h3 className='mt-1 text-lg font-semibold text-slate-900'>Resume Studio</h3>
+            <p className='mt-1 text-sm text-slate-600'>Upload old resume, optimize for ATS, and download a modern version with one click.</p>
+          </div>
+          <Button onClick={() => navigate('/student/resume-studio')}>
+            <FilePenLine className='h-4 w-4' />
+            Open Resume Studio
+          </Button>
+        </div>
+      </Card>
 
       <Card>
         <SectionHeader title='Eligible Companies' subtitle='Only eligible drives are highlighted for quick action' />

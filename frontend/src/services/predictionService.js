@@ -33,6 +33,78 @@ function scoreContribution(label, value) {
   return { label, value: Number(value.toFixed(1)) };
 }
 
+function extractAtsKeywords(text) {
+  const stopWords = new Set([
+    'the', 'and', 'for', 'with', 'you', 'your', 'are', 'our', 'job', 'role', 'candidate', 'work', 'team', 'must',
+    'should', 'have', 'has', 'from', 'that', 'this', 'will', 'can', 'using', 'used', 'strong', 'good', 'ability',
+  ]);
+
+  return Array.from(
+    new Set(
+      String(text || '')
+        .toLowerCase()
+        .split(/[^a-z0-9+#.]+/)
+        .map((token) => token.trim())
+        .filter((token) => token.length > 2 && !stopWords.has(token)),
+    ),
+  ).slice(0, 80);
+}
+
+function keywordInText(keyword, text) {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${escaped}(?=[^a-z0-9]|$)`, 'i').test(String(text || '').toLowerCase());
+}
+
+function localAtsScore({ file, jobDescription, targetRole }) {
+  const resumeText = String(file?.name || '').toLowerCase();
+  const jd = `${targetRole || ''} ${jobDescription || ''}`;
+  const keywords = extractAtsKeywords(jd);
+  const matched = keywords.filter((keyword) => keywordInText(keyword, resumeText));
+  const missing = keywords.filter((keyword) => !matched.includes(keyword));
+
+  const keywordScore = keywords.length ? (matched.length / keywords.length) * 100 : 0;
+  const semanticScore = Math.min(95, keywordScore + 10);
+  const sectionScore = 55;
+  const formatScore = 60;
+
+  const overall = Math.round(keywordScore * 0.45 + semanticScore * 0.25 + sectionScore * 0.2 + formatScore * 0.1);
+
+  return {
+    overall_score: overall,
+    grade: overall >= 80 ? 'A' : overall >= 68 ? 'B' : overall >= 55 ? 'C' : 'D',
+    score_breakdown: {
+      keyword_match: Number(keywordScore.toFixed(1)),
+      semantic_similarity: Number(semanticScore.toFixed(1)),
+      section_completeness: Number(sectionScore.toFixed(1)),
+      format_quality: Number(formatScore.toFixed(1)),
+    },
+    keyword_stats: {
+      total_keywords: keywords.length,
+      matched_count: matched.length,
+      matched_keywords: matched,
+      missing_keywords: missing,
+    },
+    extracted_profile: {
+      email: '',
+      phone: '',
+      has_linkedin: resumeText.includes('linkedin'),
+      has_github: resumeText.includes('github'),
+      years_experience: 0,
+      sections_found: [],
+      word_count: resumeText.split(/\s+/).filter(Boolean).length,
+    },
+    recommendations: [
+      'Backend ATS scorer unavailable. Start backend server to get full file-based ATS parsing.',
+      'Tailor resume keywords to match role requirements from job description.',
+    ],
+    source: 'ats-local-fallback-v1',
+    attribution: {
+      inspired_by: 'srbhr/Resume-Matcher',
+      license: 'Apache-2.0',
+    },
+  };
+}
+
 function localStudentPredict(input) {
   const model = normalizeStudentPredictionInput(input);
 
@@ -285,4 +357,63 @@ export async function parseResumeSignals(file) {
       source: 'resume-filename-parser-fallback',
     };
   }
+}
+
+export async function scoreResumeAts({ file, jobDescription, targetRole }, options = {}) {
+  const shouldUseBackend = options.preferBackend !== false;
+
+  if (shouldUseBackend) {
+    try {
+      const formData = new FormData();
+      formData.append('resume', file);
+      formData.append('jobDescription', String(jobDescription || ''));
+      formData.append('targetRole', String(targetRole || ''));
+
+      const { data } = await api.post('/ats-score', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return data;
+    } catch {
+      return localAtsScore({ file, jobDescription, targetRole });
+    }
+  }
+
+  return localAtsScore({ file, jobDescription, targetRole });
+}
+
+export async function optimizeResumeWithOssPipeline({ file, jobDescription, targetRole }, options = {}) {
+  const shouldUseBackend = options.preferBackend !== false;
+
+  if (!file) {
+    throw new Error('Resume file is required.');
+  }
+
+  if (!String(jobDescription || '').trim()) {
+    throw new Error('Job description is required for optimization.');
+  }
+
+  if (shouldUseBackend) {
+    try {
+      const formData = new FormData();
+      formData.append('resume', file);
+      formData.append('jobDescription', String(jobDescription || ''));
+      formData.append('targetRole', String(targetRole || ''));
+
+      const { data } = await api.post('/resume-optimize', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return data;
+    } catch (error) {
+      const message = error?.response?.data?.message || 'Resume optimization pipeline is unavailable right now.';
+      throw new Error(message);
+    }
+  }
+
+  throw new Error('Backend pipeline required for OSS resume optimization.');
 }

@@ -13,6 +13,7 @@ const CampusPredictorPage = lazy(() => import('./pages/CampusPredictorPage'));
 const InsightsLabPage = lazy(() => import('./pages/InsightsLabPage'));
 const MigrationPage = lazy(() => import('./pages/MigrationPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const ResumeStudioPage = lazy(() => import('./pages/ResumeStudioPage'));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
 const StudentPredictorPage = lazy(() => import('./pages/StudentPredictorPage'));
 const StudentProfile = lazy(() => import('./pages/StudentProfile'));
@@ -127,6 +128,15 @@ export default function App() {
             }
           />
 
+          <Route
+            path="/resume-studio"
+            element={
+              <AdminOnly>
+                <ResumeStudioPage />
+              </AdminOnly>
+            }
+          />
+
           {/* Student Routes */}
           <Route
             path="/student"
@@ -151,6 +161,15 @@ export default function App() {
             element={
               <AuthGuard>
                 <StudentPredictorPage />
+              </AuthGuard>
+            }
+          />
+
+          <Route
+            path="/student/resume-studio"
+            element={
+              <AuthGuard>
+                <ResumeStudioPage />
               </AuthGuard>
             }
           />

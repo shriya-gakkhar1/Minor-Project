@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BriefcaseBusiness, ClipboardCheck, Rocket, UserCheck } from 'lucide-react';
+import { BriefcaseBusiness, ClipboardCheck, FilePenLine, Rocket, UserCheck } from 'lucide-react';
 import AiReportModal from '../components/AiReportModal';
 import Button from '../components/Button';
 import DataTable from '../components/DataTable';
@@ -267,6 +267,20 @@ export default function AdminDashboard() {
         <StatCard label='Pending Interviews' value={pendingInterviews} icon={<ClipboardCheck className='h-5 w-5' />} />
         <StatCard label='Selected Count' value={selectedCount} icon={<UserCheck className='h-5 w-5' />} />
         <StatCard label='Active Drives' value={activeDrives} icon={<BriefcaseBusiness className='h-5 w-5' />} />
+      </div>
+
+      <div className='rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50 to-white p-5'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <div>
+            <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>New Feature</p>
+            <h3 className='mt-1 text-lg font-semibold text-slate-900'>Resume Studio</h3>
+            <p className='mt-1 text-sm text-slate-600'>OCR + ATS optimization + Reactive Resume JSON + PDF exports in one guided flow.</p>
+          </div>
+          <Button onClick={() => navigate('/resume-studio')}>
+            <FilePenLine className='h-4 w-4' />
+            Open Resume Studio
+          </Button>
+        </div>
       </div>
 
       <div className='grid gap-4 lg:grid-cols-3'>

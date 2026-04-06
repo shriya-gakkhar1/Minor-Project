@@ -1,7 +1,15 @@
 const express = require('express');
+const multer = require('multer');
 const { predictCampusStats } = require('../services/campusPredictorEngine');
+const { extractResumeTextFromFile } = require('../services/resumeTextExtractor');
+const { scoreResumeAgainstJob } = require('../services/atsScorerEngine');
+const { optimizeResumePackage } = require('../services/ossResumeOptimizer');
 
 const router = express.Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 },
+});
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -98,6 +106,54 @@ router.post('/resume-parse', (req, res) => {
     internships: filename.includes('intern') ? 1 : 0,
     no_of_projects: filename.includes('project') ? 3 : 2,
   });
+});
+
+router.post('/ats-score', upload.single('resume'), async (req, res) => {
+  const jobDescription = String(req.body?.jobDescription || '');
+  const targetRole = String(req.body?.targetRole || '');
+
+  const extracted = await extractResumeTextFromFile(req.file);
+  if (!extracted.ok) {
+    return res.status(400).json({ message: extracted.error });
+  }
+
+  const scoring = scoreResumeAgainstJob({
+    resumeText: extracted.text,
+    jobDescription,
+    targetRole,
+  });
+
+  if (!scoring.ok) {
+    return res.status(400).json({ message: scoring.error });
+  }
+
+  return res.json(scoring.data);
+});
+
+router.post('/resume-optimize', upload.single('resume'), async (req, res) => {
+  const jobDescription = String(req.body?.jobDescription || '');
+  const targetRole = String(req.body?.targetRole || '');
+
+  const extracted = await extractResumeTextFromFile(req.file, {
+    preferOcrForPdf: true,
+  });
+
+  if (!extracted.ok) {
+    return res.status(400).json({ message: extracted.error });
+  }
+
+  const optimized = optimizeResumePackage({
+    resumeText: extracted.text,
+    jobDescription,
+    targetRole,
+    extractionSource: extracted.source || 'unknown',
+  });
+
+  if (!optimized.ok) {
+    return res.status(400).json({ message: optimized.error });
+  }
+
+  return res.json(optimized.data);
 });
 
 router.post('/recommend-skills', (req, res) => {
