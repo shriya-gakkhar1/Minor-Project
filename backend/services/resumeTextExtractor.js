@@ -1,11 +1,32 @@
 const mammoth = require('mammoth');
-const pdfParse = require('pdf-parse');
+const pdfParseModule = require('pdf-parse');
 const { extractTextWithPaddleOcr } = require('./paddleOcrBridge');
 
 function getFileExtension(filename = '') {
   const name = String(filename || '');
   const index = name.lastIndexOf('.');
   return index >= 0 ? name.slice(index + 1).toLowerCase() : '';
+}
+
+async function parsePdfText(buffer) {
+  if (typeof pdfParseModule === 'function') {
+    return pdfParseModule(buffer);
+  }
+
+  if (pdfParseModule && typeof pdfParseModule.default === 'function') {
+    return pdfParseModule.default(buffer);
+  }
+
+  if (pdfParseModule && typeof pdfParseModule.PDFParse === 'function') {
+    const parser = new pdfParseModule.PDFParse({ data: buffer });
+    try {
+      return await parser.getText();
+    } finally {
+      await Promise.resolve(parser.destroy()).catch(() => undefined);
+    }
+  }
+
+  throw new Error('Unsupported pdf-parse module export format.');
 }
 
 async function extractResumeTextFromFile(file, options = {}) {
@@ -20,7 +41,7 @@ async function extractResumeTextFromFile(file, options = {}) {
     }
 
     if (extension === 'pdf') {
-      const parsed = await pdfParse(file.buffer);
+      const parsed = await parsePdfText(file.buffer);
       const parsedText = String(parsed.text || '');
       const tokenCount = parsedText.split(/\s+/).filter(Boolean).length;
 
