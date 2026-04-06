@@ -69,7 +69,7 @@ export default function AdminDashboard() {
     return baseRows.filter((row) => {
       const companyMatch = selectedCompanyFilter === 'all' || row.company === selectedCompanyFilter;
       const statusMatch = statusFilter === 'all' || row.latestStatus === statusFilter;
-      const searchMatch = row.name.toLowerCase().includes(search.toLowerCase());
+      const searchMatch = String(row.name || '').toLowerCase().includes(search.toLowerCase());
       return companyMatch && statusMatch && searchMatch;
     });
   }, [baseRows, search, selectedCompanyFilter, statusFilter]);
@@ -100,18 +100,19 @@ export default function AdminDashboard() {
     applicationViews.forEach((application) => {
       const company = companyMap.get(application.companyId);
       if (!company) return;
-      if (!metrics[company.name]) {
-        metrics[company.name] = {
-          name: company.name,
+      const safeCompanyName = String(company.name || '').trim() || 'Unassigned';
+      if (!metrics[safeCompanyName]) {
+        metrics[safeCompanyName] = {
+          name: safeCompanyName,
           applicants: 0,
           selected: 0,
           students: [],
         };
       }
 
-      metrics[company.name].applicants += 1;
-      if (application.status === 'Selected') metrics[company.name].selected += 1;
-      metrics[company.name].students.push({
+      metrics[safeCompanyName].applicants += 1;
+      if (application.status === 'Selected') metrics[safeCompanyName].selected += 1;
+      metrics[safeCompanyName].students.push({
         name: application.studentName,
         status: application.status,
         role: application.role,
@@ -180,7 +181,7 @@ export default function AdminDashboard() {
                 <select
                   value={value}
                   onChange={(event) => updateStatus(row.latestApplicationId, event.target.value)}
-                  className={`rounded-lg border px-2 py-1 text-xs font-semibold outline-none ${toneClasses(statusTone(value))}`}
+                  className={`rounded-lg border px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-teal-200 ${toneClasses(statusTone(value))}`}
                 >
                   {options.map((option) => (
                     <option key={option} value={option}>
@@ -205,7 +206,7 @@ export default function AdminDashboard() {
                 <select
                   value={value}
                   onChange={(event) => updateStatus(row.latestApplicationId, event.target.value)}
-                  className={`rounded-lg border px-2 py-1 text-xs font-semibold outline-none ${toneClasses(statusTone(value))}`}
+                  className={`rounded-lg border px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-teal-200 ${toneClasses(statusTone(value))}`}
                 >
                   {options.map((option) => (
                     <option key={option} value={option}>
@@ -251,7 +252,7 @@ export default function AdminDashboard() {
     <PageContainer className='space-y-6'>
       <SectionHeader
         title='Placement Overview'
-        subtitle='Action-driven control center for migration, workflow, and outcomes'
+        subtitle='Action-driven control center for migration, workflow, and placement outcomes.'
         action={
           <div className='flex flex-wrap items-center gap-2'>
             <Button variant='secondary' onClick={() => navigate('/migration')}>Import Data</Button>
@@ -261,7 +262,7 @@ export default function AdminDashboard() {
         }
       />
 
-      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+      <div className='pf-stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <StatCard label='New Applications Today' value={newApplicationsToday} icon={<Rocket className='h-5 w-5' />} />
         <StatCard label='Pending Interviews' value={pendingInterviews} icon={<ClipboardCheck className='h-5 w-5' />} />
         <StatCard label='Selected Count' value={selectedCount} icon={<UserCheck className='h-5 w-5' />} />
@@ -269,7 +270,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className='grid gap-4 lg:grid-cols-3'>
-        <div className='rounded-2xl border border-slate-200 bg-white p-5 lg:col-span-2'>
+        <div className='rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50/70 to-white p-5 lg:col-span-2'>
           <SectionHeader title='Smart Insights' subtitle='Real outcomes from live application data' />
           <div className='grid gap-3 md:grid-cols-2'>
             <div className='rounded-xl border border-slate-200 bg-slate-50 p-4'>
@@ -283,19 +284,19 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className='rounded-2xl border border-slate-200 bg-white p-5'>
+        <div className='rounded-2xl border border-slate-200 bg-white/95 p-5'>
           <SectionHeader title='Quick Filters' subtitle='Admin search and filters' />
           <div className='space-y-2'>
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder='Search student'
-              className='h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100'
+              className='h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100'
             />
             <select
               value={selectedCompanyFilter}
               onChange={(event) => setSelectedCompanyFilter(event.target.value)}
-              className='h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100'
+              className='h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100'
             >
               <option value='all'>All Companies</option>
               {companies.map((company) => (
@@ -305,7 +306,7 @@ export default function AdminDashboard() {
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className='h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100'
+              className='h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100'
             >
               <option value='all'>All Status</option>
               {WORKFLOW_STAGES.map((status) => (
@@ -326,7 +327,7 @@ export default function AdminDashboard() {
       </Suspense>
 
       <div className='grid gap-4 lg:grid-cols-3'>
-        <div className='rounded-2xl border border-slate-200 bg-white p-5 lg:col-span-2'>
+        <div className='rounded-2xl border border-slate-200 bg-white/95 p-5 lg:col-span-2'>
           <SectionHeader
             title='Students'
             subtitle={selectedCompanyFilter === 'all' ? 'Global view with company and CGPA' : 'Company view with status and role'}
@@ -334,23 +335,25 @@ export default function AdminDashboard() {
           <DataTable columns={tableColumns} rows={filteredStudents} emptyText='No students in this filter.' />
         </div>
 
-        <div className='rounded-2xl border border-slate-200 bg-white p-5'>
+        <div className='rounded-2xl border border-slate-200 bg-white/95 p-5'>
           <SectionHeader title='Company View' subtitle='Click a company to inspect conversion details' />
-          <div className='mb-3 flex flex-wrap gap-2'>
-            {companyMetrics.map((company) => (
-              <button
-                key={company.name}
-                onClick={() => setActiveCompany(company.name)}
-                className={`rounded-full border px-2 py-1 text-xs ${
-                  activeCompanyData?.name === company.name
-                    ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
-                    : 'border-slate-200 bg-white text-slate-600'
-                }`}
-              >
-                {company.name}
-              </button>
-            ))}
-          </div>
+          {companyMetrics.length ? (
+            <div className='mb-3 flex flex-wrap gap-2'>
+              {companyMetrics.map((company) => (
+                <button
+                  key={company.name}
+                  onClick={() => setActiveCompany(company.name)}
+                  className={`rounded-full border px-2 py-1 text-xs transition ${
+                    activeCompanyData?.name === company.name
+                      ? 'border-teal-200 bg-teal-50 text-teal-700'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {company.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           {activeCompanyData ? (
             <div className='space-y-2'>
@@ -366,16 +369,16 @@ export default function AdminDashboard() {
               </div>
             </div>
           ) : (
-            <p className='text-sm text-slate-500'>No company analytics available.</p>
+            <p className='text-sm text-slate-500'>No company analytics available yet. Add drives and applications to unlock this panel.</p>
           )}
         </div>
       </div>
 
-      <div className='rounded-2xl border border-slate-200 bg-white p-5'>
+      <div className='rounded-2xl border border-slate-200 bg-white/95 p-5'>
         <SectionHeader title='Workflow Visualization' subtitle='Applied -> Shortlisted -> Interview -> Selected / Rejected' />
         <div className='grid gap-3 md:grid-cols-5'>
           {workflowCounts.map((item) => (
-            <div key={item.stage} className='rounded-xl border border-slate-200 bg-slate-50 p-3'>
+            <div key={item.stage} className='rounded-xl border border-slate-200 bg-slate-50/90 p-3'>
               <p className='text-xs font-medium uppercase tracking-wide text-slate-500'>{item.stage}</p>
               <p className='mt-2 text-xl font-semibold text-slate-900'>{item.count}</p>
             </div>

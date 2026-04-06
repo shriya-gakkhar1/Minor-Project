@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const authRoutes = require('./routes/auth');
+const mlRoutes = require('./routes/mlRoutes');
 
 const app = express();
 
@@ -27,5 +28,6 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/ml', mlRoutes);
 
 module.exports = app;

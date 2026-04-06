@@ -9,9 +9,12 @@ import { usePlacementStore } from './store/usePlacementStore';
 // Lazy loaded pages
 const AddCompanyPage = lazy(() => import('./pages/AddCompanyPage'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const CampusPredictorPage = lazy(() => import('./pages/CampusPredictorPage'));
+const InsightsLabPage = lazy(() => import('./pages/InsightsLabPage'));
 const MigrationPage = lazy(() => import('./pages/MigrationPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const StudentPredictorPage = lazy(() => import('./pages/StudentPredictorPage'));
 const StudentProfile = lazy(() => import('./pages/StudentProfile'));
 const StudentsPage = lazy(() => import('./pages/StudentsPage'));
 
@@ -97,6 +100,33 @@ export default function App() {
             }
           />
 
+          <Route
+            path="/insights-lab"
+            element={
+              <AdminOnly>
+                <InsightsLabPage />
+              </AdminOnly>
+            }
+          />
+
+          <Route
+            path="/campus-predictor"
+            element={
+              <AdminOnly>
+                <CampusPredictorPage />
+              </AdminOnly>
+            }
+          />
+
+          <Route
+            path="/student-predictor"
+            element={
+              <AdminOnly>
+                <StudentPredictorPage />
+              </AdminOnly>
+            }
+          />
+
           {/* Student Routes */}
           <Route
             path="/student"
@@ -112,6 +142,15 @@ export default function App() {
             element={
               <AuthGuard>
                 <StudentProfile />
+              </AuthGuard>
+            }
+          />
+
+          <Route
+            path="/student/predictor"
+            element={
+              <AuthGuard>
+                <StudentPredictorPage />
               </AuthGuard>
             }
           />

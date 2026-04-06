@@ -49,6 +49,9 @@ export const usePlacementStore = create((set, get) => ({
   migrationPreviewRows: [],
   migrationSource: null,
   migrationErrors: [],
+  campusPrediction: null,
+  studentPrediction: null,
+  studentSkillSuggestions: [],
 
   refreshData: () => {
     set((state) => ({ ...state, ...buildViewState(), lastRefreshedAt: new Date().toISOString() }));
@@ -147,6 +150,17 @@ export const usePlacementStore = create((set, get) => ({
     get().refreshData();
     return normalized;
   },
+
+  setCampusPrediction: (campusPrediction) => set({ campusPrediction }),
+
+  setStudentPredictionResult: (studentPrediction, studentSkillSuggestions = []) =>
+    set({ studentPrediction, studentSkillSuggestions }),
+
+  clearPredictionResults: () => set({
+    campusPrediction: null,
+    studentPrediction: null,
+    studentSkillSuggestions: [],
+  }),
 
   clearMigrationPreview: () => set({ migrationPreviewRows: [], migrationSource: null, migrationErrors: [] }),
 }));

@@ -1,13 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Sora:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 
 :root {
-  --pf-bg: #f7f9fc;
+  --pf-bg: #f3f7fb;
   --pf-card: #ffffff;
   --pf-text: #0f172a;
-  --pf-muted: #64748b;
-  --pf-border: #e2e8f0;
-  --pf-accent: #4f46e5;
+  --pf-muted: #5f7288;
+  --pf-border: #d9e3ee;
+  --pf-accent: #0f766e;
+  --pf-accent-soft: #d9f4ee;
+  --pf-secondary: #0f5c8e;
+  --pf-highlight: #f59e0b;
+  --pf-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
 }
 
 * {
@@ -22,12 +26,15 @@ body,
 
 body {
   margin: 0;
-  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-family: 'Sora', system-ui, sans-serif;
   color: var(--pf-text);
   background:
-    radial-gradient(circle at 0% 0%, #eaf0ff 0, transparent 30%),
-    radial-gradient(circle at 100% 100%, #eef6ff 0, transparent 35%),
+    radial-gradient(circle at 0% 0%, #e7f8f3 0, transparent 32%),
+    radial-gradient(circle at 100% 0%, #e7f3ff 0, transparent 28%),
+    radial-gradient(circle at 100% 100%, #fff2dd 0, transparent 30%),
     var(--pf-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 h1,
@@ -36,16 +43,24 @@ h3,
 h4,
 h5 {
   font-family: 'Manrope', system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
 
 ::selection {
-  background: #c7d2fe;
+  background: #bcefe4;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -53,6 +68,89 @@ h5 {
   }
 }
 
+@keyframes drift {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes reveal-soft {
+  from {
+    opacity: 0;
+    transform: scale(0.985) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.pf-enter {
+  animation: rise-in 280ms ease-out;
+}
+
+.pf-stagger > * {
+  animation: reveal-soft 340ms ease both;
+}
+
+.pf-stagger > *:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.pf-stagger > *:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.pf-shell-bg {
+  position: relative;
+  isolation: isolate;
+}
+
+.pf-shell-bg::before,
+.pf-shell-bg::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(44px);
+  opacity: 0.5;
+}
+
+.pf-shell-bg::before {
+  top: 2%;
+  left: 8%;
+  width: 280px;
+  height: 280px;
+  background: #bde8dc;
+}
+
+.pf-shell-bg::after {
+  right: 8%;
+  bottom: 3%;
+  width: 260px;
+  height: 260px;
+  background: #cde3ff;
+}
+
+.pf-float {
+  animation: drift 3.8s ease-in-out infinite;
+}
+
 main > div {
-  animation: rise-in 240ms ease-out;
+  animation: rise-in 260ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
 }

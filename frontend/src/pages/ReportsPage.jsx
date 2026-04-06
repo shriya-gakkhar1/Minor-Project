@@ -5,13 +5,15 @@ import {
 } from 'recharts';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import Button from '../components/Button';
 import Card from '../components/Card';
+import Input from '../components/Input';
 import PageContainer from '../components/PageContainer';
 import SectionHeader from '../components/SectionHeader';
 import DataTable from '../components/DataTable';
 import { usePlacementStore } from '../store/usePlacementStore';
 
-const COLORS = ['#6366f1', '#a78bfa', '#38bdf8', '#34d399', '#f472b6', '#fbbf24', '#f87171', '#818cf8'];
+const COLORS = ['#0f766e', '#0f5c8e', '#14b8a6', '#22c55e', '#f59e0b', '#e11d48', '#4f46e5', '#8b5cf6'];
 
 const CHART_TYPES = [
   { id: 'bar', label: 'Bar Chart', icon: '📊' },
@@ -19,6 +21,25 @@ const CHART_TYPES = [
   { id: 'pie', label: 'Pie Chart', icon: '🥧' },
   { id: 'area', label: 'Area Chart', icon: '📉' },
 ];
+
+function normalizeStatus(value) {
+  const key = String(value || '').toLowerCase().trim();
+  if (!key) return 'applied';
+  if (key === 'placed' || key === 'selected') return 'selected';
+  if (key === 'shortlisted') return 'shortlisted';
+  if (key === 'interview') return 'interview';
+  if (key === 'rejected') return 'rejected';
+  return 'applied';
+}
+
+function formatStatusLabel(value) {
+  const key = normalizeStatus(value);
+  if (key === 'selected') return 'Selected';
+  if (key === 'shortlisted') return 'Shortlisted';
+  if (key === 'interview') return 'Interview';
+  if (key === 'rejected') return 'Rejected';
+  return 'Applied';
+}
 
 export default function ReportsPage() {
   // Get data from store - use separate selectors to avoid infinite loops
@@ -39,6 +60,11 @@ export default function ReportsPage() {
 
   const [chartType, setChartType] = useState('bar');
   const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
+  const companyMapById = useMemo(() => {
+    return new Map(companies.map((company) => [company.id, company.name]));
+  }, [companies]);
 
   // Get unique values for filters
   const studentOptions = useMemo(
@@ -52,18 +78,19 @@ export default function ReportsPage() {
   }, [students]);
 
   const companyOptions = useMemo(() => {
-    const companys = new Set(applications.map((app) => {
-      const company = companies.find((c) => c.id === app.companyId);
-      return company?.name;
-    }).filter(Boolean));
-    // Include 'Unassigned' if it exists in data
-    const hasUnassigned = applications.some((app) => !app.companyId || !companies.find((c) => c.id === app.companyId));
-    const options = ['All', ...Array.from(companys)];
+    const companys = new Set(
+      studentPlacementRows
+        .map((row) => row.company || companyMapById.get(row.companyId) || 'Unassigned')
+        .filter(Boolean),
+    );
+
+    const hasUnassigned = Array.from(companys).some((name) => name === 'Unassigned');
+    const options = ['All', ...Array.from(companys).filter((name) => name !== 'Unassigned')];
     if (hasUnassigned) options.push('Unassigned');
     return options;
-  }, [applications, companies]);
+  }, [companyMapById, studentPlacementRows]);
 
-  const statusOptions = ['All', 'Applied', 'Shortlisted', 'Rejected', 'Placed'];
+  const statusOptions = ['All', 'Applied', 'Shortlisted', 'Interview', 'Selected', 'Rejected'];
 
   // Apply filters logic
   const filteredData = useMemo(() => {
@@ -98,29 +125,21 @@ export default function ReportsPage() {
     // Company filter (applied regardless)
     if (filters.company !== 'All') {
       data = data.filter((row) => {
+        const rowCompanyName = row.company || companyMapById.get(row.companyId) || 'Unassigned';
         if (filters.company === 'Unassigned') {
-          return !row.companyId || !companies.find((c) => c.id === row.companyId);
+          return rowCompanyName === 'Unassigned';
         }
-        const company = companies.find((c) => c.id === row.companyId);
-        return company?.name === filters.company;
+        return rowCompanyName === filters.company;
       });
     }
 
     // Status filter (applied regardless)
     if (filters.status !== 'All') {
-      data = data.filter((row) => {
-        const statusMap = {
-          Applied: 'applied',
-          Shortlisted: 'shortlisted',
-          Rejected: 'rejected',
-          Placed: 'placed',
-        };
-        return row.status === statusMap[filters.status];
-      });
+      data = data.filter((row) => normalizeStatus(row.status) === normalizeStatus(filters.status));
     }
 
     return data;
-  }, [filters, studentPlacementRows, companies]);
+  }, [filters, studentPlacementRows, companyMapById]);
 
   // Prepare chart data
   const chartData = useMemo(() => {
@@ -130,16 +149,12 @@ export default function ReportsPage() {
       // Company vs Count (including Unassigned)
       const companyMap = {};
       filteredData.forEach((row) => {
-        let name = 'Unassigned';
-        if (row.companyId) {
-          const company = companies.find((c) => c.id === row.companyId);
-          name = company?.name || 'Unassigned';
-        }
+        const name = row.company || companyMapById.get(row.companyId) || 'Unassigned';
         if (!companyMap[name]) {
           companyMap[name] = { name, count: 0, placed: 0, isUnassigned: name === 'Unassigned' };
         }
         companyMap[name].count += 1;
-        if (row.status === 'placed') companyMap[name].placed += 1;
+        if (normalizeStatus(row.status) === 'selected') companyMap[name].placed += 1;
       });
       return Object.values(companyMap).sort((a, b) => b.count - a.count).slice(0, 10) || [];
     }
@@ -148,11 +163,11 @@ export default function ReportsPage() {
       // Status distribution
       const statusMap = {};
       filteredData.forEach((row) => {
-        const status = row.status || 'pending';
+        const status = formatStatusLabel(row.status);
         statusMap[status] = (statusMap[status] || 0) + 1;
       });
       return Object.entries(statusMap).map(([name, value]) => ({
-        name: name.charAt(0).toUpperCase() + name.slice(1),
+        name,
         value,
       })) || [];
     }
@@ -174,18 +189,19 @@ export default function ReportsPage() {
     }
 
     return [];
-  }, [chartType, filteredData, companies]);
+  }, [chartType, filteredData, companyMapById]);
 
   // Table data
   const tableData = useMemo(() => {
     if (!filteredData || filteredData.length === 0) return [];
     
-    return filteredData.map((row) => ({
+    return filteredData.map((row, index) => ({
+      id: row.id || row.s_id || `${row.name || 'student'}_${index}`,
       ...row,
-      companyName: companies.find((c) => c.id === row.companyId)?.name || 'Unknown',
-      statusDisplay: row.status?.charAt(0).toUpperCase() + row.status?.slice(1) || 'Pending',
+      companyName: row.company || companyMapById.get(row.companyId) || 'Unassigned',
+      statusDisplay: formatStatusLabel(row.status),
     }));
-  }, [filteredData, companies]);
+  }, [filteredData, companyMapById]);
 
   const tableColumns = [
     { key: 'name', label: 'Student Name' },
@@ -198,6 +214,7 @@ export default function ReportsPage() {
   // PDF Export
   const handleExportPDF = async () => {
     if (isExporting || !filteredData || filteredData.length === 0) return;
+    setExportError('');
     setIsExporting(true);
 
     try {
@@ -218,7 +235,7 @@ export default function ReportsPage() {
 
       // Title
       pdf.setFontSize(20);
-      pdf.setTextColor(25, 25, 112); // Dark indigo
+      pdf.setTextColor(15, 92, 142);
       pdf.text('Placement Analytics Report', 20, yPos);
       yPos += 12;
 
@@ -298,7 +315,7 @@ export default function ReportsPage() {
       if (tableData.length > 0) {
         pdf.setFontSize(11);
         pdf.setFont(undefined, 'bold');
-        pdf.setTextColor(25, 25, 112);
+        pdf.setTextColor(15, 92, 142);
         pdf.text('Data Summary', 20, yPos);
         yPos += 8;
 
@@ -348,22 +365,22 @@ export default function ReportsPage() {
       pdf.save(`placement-report-${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('PDF export failed:', error);
-      alert('Failed to export PDF. Please try again.');
+      setExportError('Failed to export PDF. Please try again.');
     } finally {
       setIsExporting(false);
     }
   };
 
   return (
-    <PageContainer>
+    <PageContainer className='space-y-6'>
       <SectionHeader
         title='Reporting & Statistics'
         subtitle='Advanced placement analytics with flexible filtering and multi-format exports.'
       />
 
       {/* Filters Section */}
-      <Card className='mb-6'>
-        <h3 className='text-lg font-semibold text-slate-900 mb-4'>Filters</h3>
+      <Card className='mb-0'>
+        <h3 className='mb-4 text-lg font-semibold text-slate-900'>Filters</h3>
         <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4'>
           {/* Student Filter */}
           <div>
@@ -371,7 +388,7 @@ export default function ReportsPage() {
             <select
               value={filters.student}
               onChange={(e) => setFilters({ ...filters, student: e.target.value })}
-              className='w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm text-slate-900'
+                className='h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-900 focus:border-teal-400 focus:ring-1 focus:ring-teal-400'
             >
               {studentOptions.map((student) => (
                 <option key={student.id} value={student.id}>
@@ -388,7 +405,7 @@ export default function ReportsPage() {
               <select
                 value={filters.branch}
                 onChange={(e) => setFilters({ ...filters, branch: e.target.value })}
-                className='w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm text-slate-900'
+                className='h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-900 focus:border-teal-400 focus:ring-1 focus:ring-teal-400'
               >
                 {branchOptions.map((branch) => (
                   <option key={branch} value={branch}>
@@ -405,7 +422,7 @@ export default function ReportsPage() {
             <select
               value={filters.company}
               onChange={(e) => setFilters({ ...filters, company: e.target.value })}
-              className='w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm text-slate-900'
+                className='h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-900 focus:border-teal-400 focus:ring-1 focus:ring-teal-400'
             >
               {companyOptions.map((company) => (
                 <option key={company} value={company}>
@@ -421,7 +438,7 @@ export default function ReportsPage() {
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className='w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm text-slate-900'
+                className='h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-900 focus:border-teal-400 focus:ring-1 focus:ring-teal-400'
             >
               {statusOptions.map((status) => (
                 <option key={status} value={status}>
@@ -435,7 +452,7 @@ export default function ReportsPage() {
           {!filters.student && (
             <div>
               <label className='block text-sm font-medium text-slate-700 mb-2'>CGPA Min</label>
-              <input
+              <Input
                 type='number'
                 min='0'
                 max='10'
@@ -443,7 +460,7 @@ export default function ReportsPage() {
                 placeholder='0'
                 value={filters.cgpaMin}
                 onChange={(e) => setFilters({ ...filters, cgpaMin: e.target.value })}
-                className='w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm text-slate-900'
+                className='h-10'
               />
             </div>
           )}
@@ -452,7 +469,7 @@ export default function ReportsPage() {
           {!filters.student && (
             <div>
               <label className='block text-sm font-medium text-slate-700 mb-2'>CGPA Max</label>
-              <input
+              <Input
                 type='number'
                 min='0'
                 max='10'
@@ -460,14 +477,15 @@ export default function ReportsPage() {
                 placeholder='10'
                 value={filters.cgpaMax}
                 onChange={(e) => setFilters({ ...filters, cgpaMax: e.target.value })}
-                className='w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm text-slate-900'
+                className='h-10'
               />
             </div>
           )}
         </div>
 
         {/* Reset Button */}
-        <button
+        <Button
+          variant='secondary'
           onClick={() =>
             setFilters({
               student: '',
@@ -478,14 +496,13 @@ export default function ReportsPage() {
               cgpaMax: '',
             })
           }
-          className='mt-4 px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors'
         >
           Reset Filters
-        </button>
+        </Button>
       </Card>
 
       {/* Chart Type Selector and Export */}
-      <div className='flex flex-col gap-4 mb-6 lg:flex-row lg:items-center lg:justify-between'>
+      <div className='flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
         <div className='flex flex-wrap gap-2'>
           {CHART_TYPES.map((type) => (
             <button
@@ -493,7 +510,7 @@ export default function ReportsPage() {
               onClick={() => setChartType(type.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 chartType === type.id
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-teal-700 text-white'
                   : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -502,18 +519,19 @@ export default function ReportsPage() {
           ))}
         </div>
 
-        <button
+        <Button
           onClick={handleExportPDF}
           disabled={isExporting || filteredData.length === 0}
-          className='px-6 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all'
         >
-          {isExporting ? 'Exporting...' : '⬇️ Download Report (PDF)'}
-        </button>
+          {isExporting ? 'Exporting...' : 'Download Report (PDF)'}
+        </Button>
       </div>
+
+      {exportError ? <p className='rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>{exportError}</p> : null}
 
       {/* Charts Section */}
       {filteredData.length > 0 ? (
-        <Card className='mb-6'>
+        <Card>
           <h3 className='text-lg font-semibold text-slate-900 mb-4'>Chart Analysis</h3>
           <div id='report-content' style={{ width: '100%', height: '450px', minHeight: '450px' }}>
             <ResponsiveContainer width='100%' height='100%' minHeight={0}>
@@ -524,8 +542,8 @@ export default function ReportsPage() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey='count' fill='#6366f1' name='Total' />
-                  <Bar dataKey='placed' fill='#34d399' name='Placed' />
+                  <Bar dataKey='count' fill='#0f5c8e' name='Total' />
+                  <Bar dataKey='placed' fill='#0f766e' name='Selected' />
                 </BarChart>
               )}
 
@@ -536,8 +554,8 @@ export default function ReportsPage() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Line type='monotone' dataKey='count' stroke='#6366f1' name='Total' />
-                  <Line type='monotone' dataKey='placed' stroke='#34d399' name='Placed' />
+                  <Line type='monotone' dataKey='count' stroke='#0f5c8e' name='Total' />
+                  <Line type='monotone' dataKey='placed' stroke='#0f766e' name='Selected' />
                 </LineChart>
               )}
 
@@ -570,8 +588,8 @@ export default function ReportsPage() {
                   <Area
                     type='monotone'
                     dataKey='students'
-                    fill='#6366f1'
-                    stroke='#4f46e5'
+                    fill='#0f5c8e'
+                    stroke='#0f5c8e'
                     fillOpacity={0.6}
                   />
                 </AreaChart>
@@ -580,7 +598,7 @@ export default function ReportsPage() {
           </div>
         </Card>
       ) : (
-        <Card className='mb-6'>
+        <Card>
           <p className='text-center text-slate-500'>No data available for the selected filters.</p>
         </Card>
       )}
@@ -588,33 +606,14 @@ export default function ReportsPage() {
       {/* Table Section */}
       {tableData.length > 0 && (
         <Card>
-          <h3 className='text-lg font-semibold text-slate-900 mb-4'>
+          <h3 className='mb-4 text-lg font-semibold text-slate-900'>
             Filtered Data ({tableData.length} records)
           </h3>
-          <div className='overflow-x-auto'>
-            <table className='w-full text-sm'>
-              <thead className='bg-slate-50 border-b border-slate-200'>
-                <tr>
-                  {tableColumns.map((col) => (
-                    <th key={col.key} className='px-4 py-3 text-left font-medium text-slate-700'>
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {tableData.map((row, idx) => (
-                  <tr key={idx} className='border-b border-slate-100 hover:bg-slate-50 transition-colors'>
-                    {tableColumns.map((col) => (
-                      <td key={col.key} className='px-4 py-3 text-slate-600'>
-                        {col.key === 'cgpa' ? parseFloat(row[col.key]).toFixed(2) : row[col.key]}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={tableColumns}
+            rows={tableData.map((row) => ({ ...row, cgpa: Number(row.cgpa || 0).toFixed(2) }))}
+            emptyText='No rows available for current filters.'
+          />
         </Card>
       )}
     </PageContainer>

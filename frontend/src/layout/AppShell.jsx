@@ -22,7 +22,7 @@ export default function AppShell() {
   }, [triggerRealtimeRefresh]);
 
   return (
-    <div className='flex min-h-screen bg-slate-50'>
+    <div className='pf-shell-bg flex min-h-screen bg-transparent'>
       <Sidebar role={role} />
       <div className='flex min-w-0 flex-1 flex-col'>
         <Topbar

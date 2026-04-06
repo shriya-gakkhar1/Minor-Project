@@ -2,9 +2,9 @@ import { cn } from '../lib/utils';
 
 export default function Button({ className, variant = 'primary', size = 'md', ...props }) {
   const variantStyles = {
-    primary: 'bg-indigo-600 text-white hover:bg-indigo-700 border border-indigo-600',
-    secondary: 'bg-white text-slate-800 hover:bg-slate-50 border border-slate-200',
-    ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 border border-transparent',
+    primary: 'border border-teal-700 bg-[linear-gradient(135deg,#0f5c8e,#0f766e)] text-white shadow-sm hover:brightness-105',
+    secondary: 'border border-slate-200 bg-white text-slate-800 hover:border-teal-200 hover:bg-teal-50',
+    ghost: 'border border-transparent bg-transparent text-slate-700 hover:bg-slate-100',
     danger: 'bg-rose-600 text-white hover:bg-rose-700 border border-rose-600',
   };
 
@@ -17,7 +17,7 @@ export default function Button({ className, variant = 'primary', size = 'md', ..
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300 disabled:cursor-not-allowed disabled:opacity-50',
         variantStyles[variant],
         sizeStyles[size],
         className,

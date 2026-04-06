@@ -9,14 +9,15 @@ export default function AiReportModal({ open, onClose, summary }) {
   const [error, setError] = useState('');
   const [report, setReport] = useState('');
 
-  const fallbackReport = useMemo(() => generateLocalReport(summary), [summary]);
+  const fallbackReport = useMemo(() => generateLocalReport(summary || {}), [summary]);
 
   if (!open) return null;
 
   const runReport = async () => {
+    if (loading) return;
     setError('');
     setLoading(true);
-    const result = await generateAiReport({ apiKey, summary });
+    const result = await generateAiReport({ apiKey, summary: summary || {} });
     if (result.ok) {
       setReport(result.report);
     } else {
@@ -28,6 +29,7 @@ export default function AiReportModal({ open, onClose, summary }) {
 
   const downloadReport = () => {
     const content = report || fallbackReport;
+    if (!content) return;
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -48,8 +50,8 @@ export default function AiReportModal({ open, onClose, summary }) {
           <Button variant='ghost' onClick={onClose}>Close</Button>
         </div>
 
-        <div className='rounded-xl border border-indigo-100 bg-indigo-50 p-4'>
-          <p className='mb-2 text-sm font-medium text-indigo-700'>AI API Key</p>
+        <div className='rounded-xl border border-teal-100 bg-teal-50 p-4'>
+          <p className='mb-2 text-sm font-medium text-teal-700'>AI API Key</p>
           <div className='flex flex-col gap-2 md:flex-row'>
             <Input
               type='password'
@@ -70,7 +72,7 @@ export default function AiReportModal({ open, onClose, summary }) {
         </div>
 
         <div className='mt-4 flex justify-end gap-2'>
-          <Button variant='secondary' onClick={downloadReport}>Download</Button>
+          <Button variant='secondary' onClick={downloadReport} disabled={!report && !fallbackReport}>Download</Button>
           <Button onClick={onClose}>Done</Button>
         </div>
       </div>
