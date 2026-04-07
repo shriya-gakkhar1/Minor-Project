@@ -37,6 +37,63 @@ function inferSummary({ targetRole, resumeText, matchedKeywords }) {
   return `${role} candidate with strengths in ${keywordSlice.join(', ') || 'problem solving, communication, and engineering fundamentals'}. ${metricLine}`;
 }
 
+function extractSectionBlock(text, headingPatterns) {
+  const lines = String(text || '').split(/\r?\n/);
+  const lower = lines.map((line) => line.trim().toLowerCase());
+
+  const startIndex = lower.findIndex((line) => headingPatterns.some((pattern) => pattern.test(line)));
+  if (startIndex < 0) return '';
+
+  let endIndex = lines.length;
+  for (let i = startIndex + 1; i < lines.length; i += 1) {
+    const current = lines[i].trim();
+    if (/^(summary|profile|objective|experience|work experience|projects|skills|education|certifications?)$/i.test(current)) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  return lines.slice(startIndex + 1, endIndex).join('\n').trim();
+}
+
+function extractBullets(sectionText) {
+  const lines = String(sectionText || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const bullets = lines
+    .filter((line) => /^[-*•]/.test(line))
+    .map((line) => line.replace(/^[-*•]\s*/, '').trim())
+    .filter((line) => line.length > 15);
+
+  if (bullets.length) return bullets;
+
+  return lines
+    .filter((line) => line.length > 30)
+    .slice(0, 5);
+}
+
+function rewriteBullet(sourceBullet, boostKeyword = '') {
+  const cleaned = String(sourceBullet || '').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+
+  const startsWithVerb = /^(built|designed|implemented|developed|optimized|delivered|improved|created|led)\b/i.test(cleaned);
+  const hasMetric = /\d|%|\$|k\b|m\b|million|lakh|crore/i.test(cleaned);
+
+  let rewritten = startsWithVerb ? cleaned : `Implemented ${cleaned.charAt(0).toLowerCase()}${cleaned.slice(1)}`;
+
+  if (boostKeyword && !new RegExp(`\\b${boostKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(rewritten)) {
+    rewritten = `${rewritten} using ${boostKeyword}`;
+  }
+
+  if (!hasMetric) {
+    rewritten = `${rewritten}, improving delivery quality and measurable impact.`;
+  }
+
+  return rewritten;
+}
+
 function sanitizeKeyword(keyword = '') {
   return String(keyword || '').replace(/[^a-z0-9+#\-\s.]/gi, '').trim();
 }
@@ -82,6 +139,29 @@ function inferExperienceBullets({ matchedKeywords, missingKeywords }) {
   }
 
   return bullets;
+}
+
+function inferBulletsFromResume({ resumeText, matchedKeywords, missingKeywords }) {
+  const experienceBlock = extractSectionBlock(resumeText, [/^experience$/i, /^work experience$/i, /^employment$/i]);
+  const projectBlock = extractSectionBlock(resumeText, [/^projects?$/i, /^project experience$/i]);
+
+  const sourceExperience = extractBullets(experienceBlock);
+  const sourceProjects = extractBullets(projectBlock);
+
+  const boostedExperience = sourceExperience
+    .slice(0, 4)
+    .map((bullet, index) => rewriteBullet(bullet, matchedKeywords[index] || missingKeywords[index] || ''))
+    .filter(Boolean);
+
+  const boostedProjects = sourceProjects
+    .slice(0, 4)
+    .map((bullet, index) => rewriteBullet(bullet, matchedKeywords[index + 2] || missingKeywords[index] || ''))
+    .filter(Boolean);
+
+  return {
+    experienceBullets: boostedExperience,
+    projectBullets: boostedProjects,
+  };
 }
 
 function buildMarkdownResume({ profile, optimizedSummary, skills, experienceBullets, projectBullets }) {
@@ -245,20 +325,34 @@ function optimizeResumePackage({ resumeText, jobDescription, targetRole, extract
     missingKeywords: ats.data.keyword_stats.missing_keywords || [],
   });
 
+  const extractedBullets = inferBulletsFromResume({
+    resumeText,
+    matchedKeywords: ats.data.keyword_stats.matched_keywords || [],
+    missingKeywords: ats.data.keyword_stats.missing_keywords || [],
+  });
+
+  const finalExperienceBullets = extractedBullets.experienceBullets.length
+    ? extractedBullets.experienceBullets
+    : experienceBullets;
+
+  const finalProjectBullets = extractedBullets.projectBullets.length
+    ? extractedBullets.projectBullets
+    : projectBullets;
+
   const markdownResume = buildMarkdownResume({
     profile,
     optimizedSummary,
     skills,
-    experienceBullets,
-    projectBullets,
+    experienceBullets: finalExperienceBullets,
+    projectBullets: finalProjectBullets,
   });
 
   const jsonResume = buildJsonResume({
     profile,
     optimizedSummary,
     skills,
-    experienceBullets,
-    projectBullets,
+    experienceBullets: finalExperienceBullets,
+    projectBullets: finalProjectBullets,
   });
 
   return {
@@ -269,8 +363,8 @@ function optimizeResumePackage({ resumeText, jobDescription, targetRole, extract
       optimized_resume: {
         summary: optimizedSummary,
         skills,
-        experience_bullets: experienceBullets,
-        project_bullets: projectBullets,
+        experience_bullets: finalExperienceBullets,
+        project_bullets: finalProjectBullets,
         markdown: markdownResume,
       },
       exports: {

@@ -1,7 +1,6 @@
 // ATS scoring engine for resume vs job description comparison.
 // Scoring approach is inspired by open-source ATS matching patterns used in:
 // - https://github.com/srbhr/Resume-Matcher (Apache-2.0)
-// Adapted for this Node/Express project.
 
 const STOP_WORDS = new Set([
   'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'have', 'in', 'is', 'it',
@@ -10,6 +9,7 @@ const STOP_WORDS = new Set([
   'must', 'about', 'into', 'over', 'under', 'using', 'used', 'use', 'job', 'role', 'candidate',
   'responsibility', 'responsibilities', 'qualification', 'qualifications', 'required', 'preferred',
   'experience', 'strong', 'good', 'excellent', 'ability', 'team', 'work', 'working', 'knowledge',
+  'years', 'year', 'etc', 'plus', 'including', 'need', 'needs',
 ]);
 
 const COMMON_SKILL_TERMS = [
@@ -19,7 +19,12 @@ const COMMON_SKILL_TERMS = [
   'rest', 'api', 'microservices', 'html', 'css', 'tailwind', 'redux', 'pandas', 'numpy',
   'machine learning', 'deep learning', 'nlp', 'computer vision', 'power bi', 'tableau', 'excel',
   'spark', 'hadoop', 'ci/cd', 'jenkins', 'agile', 'jira', 'data structures', 'algorithms',
-  'system design', 'oop', 'problem solving',
+  'system design', 'oop', 'problem solving', 'communication', 'ownership',
+];
+
+const ACTION_VERBS = [
+  'built', 'designed', 'implemented', 'developed', 'optimized', 'led', 'delivered', 'improved',
+  'automated', 'deployed', 'analyzed', 'reduced', 'increased', 'created', 'launched', 'migrated',
 ];
 
 function normalizeSpace(text) {
@@ -42,6 +47,13 @@ function keywordInText(keyword, text) {
   return new RegExp(`(^|[^a-z0-9])${escapeRegex(key)}(?=[^a-z0-9]|$)`, 'i').test(content);
 }
 
+function splitSentences(text) {
+  return String(text || '')
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 15);
+}
+
 function tokenize(text) {
   return normalizeSpace(text)
     .toLowerCase()
@@ -50,86 +62,158 @@ function tokenize(text) {
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token) && !/^\d+$/.test(token));
 }
 
-function buildFrequencyMap(tokens) {
-  const map = new Map();
-  tokens.forEach((token) => {
-    map.set(token, (map.get(token) || 0) + 1);
-  });
-  return map;
+function toTokenSet(text) {
+  return new Set(tokenize(text));
 }
 
-function cosineSimilarity(textA, textB) {
-  const tokensA = tokenize(textA);
-  const tokensB = tokenize(textB);
-  if (!tokensA.length || !tokensB.length) return 0;
-
-  const freqA = buildFrequencyMap(tokensA);
-  const freqB = buildFrequencyMap(tokensB);
-  const dimensions = new Set([...freqA.keys(), ...freqB.keys()]);
-
-  let dot = 0;
-  let magA = 0;
-  let magB = 0;
-
-  dimensions.forEach((term) => {
-    const a = freqA.get(term) || 0;
-    const b = freqB.get(term) || 0;
-    dot += a * b;
-    magA += a * a;
-    magB += b * b;
+function jaccardSimilarity(setA, setB) {
+  if (!setA.size || !setB.size) return 0;
+  let intersection = 0;
+  setA.forEach((item) => {
+    if (setB.has(item)) intersection += 1;
   });
-
-  const denominator = Math.sqrt(magA) * Math.sqrt(magB);
-  if (!denominator) return 0;
-
-  return (dot / denominator) * 100;
+  const union = setA.size + setB.size - intersection;
+  if (!union) return 0;
+  return intersection / union;
 }
 
-function extractKeywordsFromJobDescription(jobDescription, targetRole = '') {
+function requirementWeight(sentence) {
+  const s = sentence.toLowerCase();
+  if (/(must|required|mandatory|need to|minimum)/i.test(s)) return 2.2;
+  if (/(preferred|nice to have|plus|bonus)/i.test(s)) return 1.3;
+  return 1.0;
+}
+
+function extractNgrams(tokens, n) {
+  const grams = [];
+  for (let i = 0; i <= tokens.length - n; i += 1) {
+    const gram = tokens.slice(i, i + n).join(' ');
+    if (gram.length >= 4) grams.push(gram);
+  }
+  return grams;
+}
+
+function extractWeightedKeywords(jobDescription, targetRole = '') {
   const jd = String(jobDescription || '').toLowerCase();
   const role = String(targetRole || '').toLowerCase();
-  const keywordSet = new Set();
+  const sentences = splitSentences(`${role}. ${jd}`);
+  const weighted = new Map();
+
+  const addKeyword = (keyword, weight, sourceSentence = '') => {
+    const key = normalizeSpace(keyword).toLowerCase();
+    if (!key || key.length < 2 || STOP_WORDS.has(key)) return;
+
+    const existing = weighted.get(key);
+    if (!existing || existing.weight < weight) {
+      weighted.set(key, {
+        keyword: key,
+        weight,
+        category: requirementWeight(sourceSentence) > 1.5 ? 'required' : 'preferred',
+      });
+    }
+  };
 
   COMMON_SKILL_TERMS.forEach((term) => {
-    if (keywordInText(term, jd)) keywordSet.add(term);
+    const matchesSentence = sentences.find((sentence) => keywordInText(term, sentence));
+    if (matchesSentence) {
+      addKeyword(term, 1.8 * requirementWeight(matchesSentence), matchesSentence);
+    }
   });
 
-  tokenize(`${role} ${jd}`).forEach((token) => {
-    if (token.length >= 3) keywordSet.add(token);
+  sentences.forEach((sentence) => {
+    const w = requirementWeight(sentence);
+    const tokens = tokenize(sentence).filter((t) => t.length >= 3);
+
+    extractNgrams(tokens, 3).slice(0, 8).forEach((gram) => addKeyword(gram, 0.9 * w, sentence));
+    extractNgrams(tokens, 2).slice(0, 10).forEach((gram) => addKeyword(gram, 0.8 * w, sentence));
+    tokens.slice(0, 15).forEach((token) => addKeyword(token, 0.6 * w, sentence));
   });
 
-  return Array.from(keywordSet).slice(0, 90);
+  return Array.from(weighted.values())
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 120);
 }
 
-function calculateKeywordMatch(resumeText, jdKeywords) {
-  const allKeywords = Array.from(new Set(jdKeywords.filter(Boolean)));
-  if (!allKeywords.length) {
+function scoreKeywordCoverage(resumeText, weightedKeywords) {
+  if (!weightedKeywords.length) {
     return {
       score: 0,
       matchedKeywords: [],
       missingKeywords: [],
-      totalKeywords: 0,
       matchedCount: 0,
+      totalKeywords: 0,
+      requiredCoverage: 0,
+      preferredCoverage: 0,
     };
   }
 
-  const matchedKeywords = allKeywords.filter((keyword) => keywordInText(keyword, resumeText));
-  const missingKeywords = allKeywords.filter((keyword) => !matchedKeywords.includes(keyword));
-  const score = (matchedKeywords.length / allKeywords.length) * 100;
+  let totalWeight = 0;
+  let matchedWeight = 0;
+  let requiredTotal = 0;
+  let requiredMatched = 0;
+  let preferredTotal = 0;
+  let preferredMatched = 0;
+
+  const matchedKeywords = [];
+  const missingKeywords = [];
+
+  weightedKeywords.forEach((item) => {
+    totalWeight += item.weight;
+    if (item.category === 'required') requiredTotal += item.weight;
+    else preferredTotal += item.weight;
+
+    if (keywordInText(item.keyword, resumeText)) {
+      matchedWeight += item.weight;
+      matchedKeywords.push(item.keyword);
+      if (item.category === 'required') requiredMatched += item.weight;
+      else preferredMatched += item.weight;
+    } else {
+      missingKeywords.push(item.keyword);
+    }
+  });
+
+  const score = totalWeight ? (matchedWeight / totalWeight) * 100 : 0;
+  const requiredCoverage = requiredTotal ? (requiredMatched / requiredTotal) * 100 : 0;
+  const preferredCoverage = preferredTotal ? (preferredMatched / preferredTotal) * 100 : 0;
 
   return {
     score,
-    matchedKeywords,
-    missingKeywords,
-    totalKeywords: allKeywords.length,
-    matchedCount: matchedKeywords.length,
+    matchedKeywords: Array.from(new Set(matchedKeywords)),
+    missingKeywords: Array.from(new Set(missingKeywords)),
+    matchedCount: Array.from(new Set(matchedKeywords)).length,
+    totalKeywords: weightedKeywords.length,
+    requiredCoverage,
+    preferredCoverage,
   };
+}
+
+function semanticCoverageScore(resumeText, jobDescription) {
+  const jdSentences = splitSentences(jobDescription);
+  const resumeSentences = splitSentences(resumeText);
+  if (!jdSentences.length || !resumeSentences.length) return 0;
+
+  const resumeTokenSets = resumeSentences.map((sentence) => toTokenSet(sentence));
+
+  let total = 0;
+  jdSentences.forEach((sentence) => {
+    const jdSet = toTokenSet(sentence);
+    if (!jdSet.size) return;
+
+    let best = 0;
+    resumeTokenSets.forEach((resumeSet) => {
+      const overlap = jaccardSimilarity(jdSet, resumeSet);
+      if (overlap > best) best = overlap;
+    });
+
+    total += best;
+  });
+
+  return (total / jdSentences.length) * 100;
 }
 
 function extractYearsExperience(text) {
   const matches = [...String(text || '').matchAll(/(\d{1,2})\s*\+?\s*(years|year|yrs|yr)/gi)];
   if (!matches.length) return 0;
-
   return Math.max(...matches.map((match) => Number(match[1]) || 0));
 }
 
@@ -146,7 +230,7 @@ function extractContactSignals(text) {
   };
 }
 
-function getSectionCompleteness(text) {
+function sectionCompleteness(text) {
   const checks = {
     summary: /(summary|profile|objective)/i.test(text),
     experience: /(experience|employment|work history)/i.test(text),
@@ -156,66 +240,113 @@ function getSectionCompleteness(text) {
     certifications: /(certification|certifications|licenses)/i.test(text),
   };
 
+  const weights = {
+    summary: 10,
+    experience: 25,
+    skills: 20,
+    education: 15,
+    projects: 20,
+    certifications: 10,
+  };
+
+  let achieved = 0;
+  let total = 0;
+  Object.entries(weights).forEach(([key, value]) => {
+    total += value;
+    if (checks[key]) achieved += value;
+  });
+
   const sectionsFound = Object.entries(checks)
     .filter(([, value]) => value)
     .map(([key]) => key);
 
-  const score = (sectionsFound.length / Object.keys(checks).length) * 100;
-  return { score, sectionsFound, sectionChecks: checks };
-}
-
-function getFormatQualityScore(text, contactSignals) {
-  const normalized = normalizeSpace(text);
-  const wordCount = normalized ? normalized.split(' ').length : 0;
-  const bulletCount = (String(text || '').match(/(^|\n)\s*[-*•]/g) || []).length;
-
-  let score = 0;
-  if (contactSignals.email) score += 20;
-  if (contactSignals.phone) score += 15;
-  if (contactSignals.hasLinkedIn) score += 10;
-  if (contactSignals.hasGithub) score += 10;
-
-  if (wordCount >= 250 && wordCount <= 1000) score += 25;
-  else if (wordCount >= 150 && wordCount <= 1300) score += 15;
-
-  if (bulletCount >= 4) score += 20;
-
   return {
-    score: Math.min(score, 100),
-    wordCount,
-    bulletCount,
+    score: total ? (achieved / total) * 100 : 0,
+    checks,
+    sectionsFound,
   };
 }
 
-function generateRecommendations({ keywordMatch, semanticScore, sectionInfo, formatInfo, missingKeywords }) {
+function formatQualityScore(text, contactSignals) {
+  const normalized = normalizeSpace(text);
+  const lines = String(text || '').split(/\r?\n/).map((line) => line.trim());
+  const bullets = lines.filter((line) => /^[-*•]/.test(line));
+
+  const wordCount = normalized ? normalized.split(' ').length : 0;
+  const actionBullets = bullets.filter((line) => ACTION_VERBS.some((verb) => new RegExp(`\\b${verb}\\b`, 'i').test(line)));
+  const quantifiedBullets = bullets.filter((line) => /\d|%|\$|x|times|k|m|million|lakh|crore/i.test(line));
+
+  let score = 0;
+  if (contactSignals.email) score += 12;
+  if (contactSignals.phone) score += 10;
+  if (contactSignals.hasLinkedIn) score += 5;
+  if (contactSignals.hasGithub) score += 3;
+
+  if (bullets.length >= 6) score += 20;
+  else if (bullets.length >= 3) score += 12;
+
+  const quantifiedRatio = bullets.length ? quantifiedBullets.length / bullets.length : 0;
+  score += Math.min(25, quantifiedRatio * 25);
+
+  const actionRatio = bullets.length ? actionBullets.length / bullets.length : 0;
+  score += Math.min(15, actionRatio * 15);
+
+  if (wordCount >= 350 && wordCount <= 900) score += 10;
+  else if (wordCount >= 220 && wordCount <= 1100) score += 6;
+
+  return {
+    score: Math.min(100, score),
+    wordCount,
+    bulletCount: bullets.length,
+    quantifiedBulletCount: quantifiedBullets.length,
+  };
+}
+
+function roleAlignmentScore(resumeText, targetRole) {
+  const role = normalizeSpace(targetRole).toLowerCase();
+  if (!role) return 60;
+
+  const roleTokens = tokenize(role);
+  if (!roleTokens.length) return 60;
+
+  const resume = String(resumeText || '').toLowerCase();
+  const matched = roleTokens.filter((token) => keywordInText(token, resume)).length;
+  return (matched / roleTokens.length) * 100;
+}
+
+function generateRecommendations({ keywordStats, semanticScore, sectionInfo, formatInfo }) {
   const recommendations = [];
 
-  if (keywordMatch < 60) {
-    recommendations.push(`Add role-critical keywords: ${missingKeywords.slice(0, 8).join(', ')}.`);
+  if (keywordStats.requiredCoverage < 65) {
+    recommendations.push(`Add required JD terms first: ${keywordStats.missingKeywords.slice(0, 8).join(', ')}.`);
   }
 
-  if (semanticScore < 50) {
-    recommendations.push('Rewrite summary and experience bullets to mirror job-description language and outcomes.');
+  if (keywordStats.preferredCoverage < 45) {
+    recommendations.push('Include preferred stack terms naturally in experience/projects where genuinely applicable.');
   }
 
-  if (!sectionInfo.sectionChecks.skills) {
-    recommendations.push('Add a dedicated Skills section with tools, frameworks, and domain strengths.');
+  if (semanticScore < 48) {
+    recommendations.push('Mirror JD phrasing in summary and top bullets, especially responsibilities and outcomes.');
   }
 
-  if (!sectionInfo.sectionChecks.projects) {
-    recommendations.push('Include 2-3 projects with impact metrics and stack details.');
+  if (!sectionInfo.checks.skills || !sectionInfo.checks.projects) {
+    recommendations.push('Ensure both Skills and Projects sections are present with concrete tool + impact details.');
   }
 
-  if (formatInfo.wordCount < 220) {
-    recommendations.push('Expand resume content with quantified achievements (impact, scale, ownership).');
+  if (formatInfo.quantifiedBulletCount < 2) {
+    recommendations.push('Add quantified outcomes (%, time saved, users served, cost reduced) in bullet points.');
+  }
+
+  if (formatInfo.wordCount < 250) {
+    recommendations.push('Resume is too short for ATS depth. Expand evidence in experience and projects.');
   }
 
   if (formatInfo.wordCount > 1100) {
-    recommendations.push('Reduce resume length and keep bullets concise for ATS readability.');
+    recommendations.push('Trim long text and keep bullets concise for parser readability.');
   }
 
   if (!recommendations.length) {
-    recommendations.push('Strong ATS alignment. Keep tailoring for each role and update impact metrics regularly.');
+    recommendations.push('Strong alignment detected. Continue tailoring for each role and keep impact metrics updated.');
   }
 
   return recommendations;
@@ -233,30 +364,30 @@ function scoreResumeAgainstJob({ resumeText, jobDescription, targetRole }) {
     return { ok: false, error: 'Job description is required for ATS scoring.' };
   }
 
-  const jdKeywords = extractKeywordsFromJobDescription(jd, targetRole);
-  const keywordStats = calculateKeywordMatch(resume, jdKeywords);
-
-  const semanticScore = cosineSimilarity(resume, jd);
-  const sectionInfo = getSectionCompleteness(resume);
+  const weightedKeywords = extractWeightedKeywords(jd, targetRole);
+  const keywordStats = scoreKeywordCoverage(resume, weightedKeywords);
+  const semanticScore = semanticCoverageScore(resume, jd);
+  const sectionInfo = sectionCompleteness(resume);
   const contactSignals = extractContactSignals(resume);
-  const formatInfo = getFormatQualityScore(resume, contactSignals);
+  const formatInfo = formatQualityScore(resume, contactSignals);
+  const roleScore = roleAlignmentScore(resume, targetRole);
   const yearsExperience = extractYearsExperience(resume);
 
   const overallScore = Math.round(
-    keywordStats.score * 0.45 +
-    semanticScore * 0.25 +
-    sectionInfo.score * 0.2 +
-    formatInfo.score * 0.1,
+    keywordStats.score * 0.42 +
+      semanticScore * 0.23 +
+      sectionInfo.score * 0.16 +
+      formatInfo.score * 0.12 +
+      roleScore * 0.07,
   );
 
-  const grade = overallScore >= 80 ? 'A' : overallScore >= 68 ? 'B' : overallScore >= 55 ? 'C' : 'D';
+  const grade = overallScore >= 82 ? 'A' : overallScore >= 70 ? 'B' : overallScore >= 58 ? 'C' : 'D';
 
   const recommendations = generateRecommendations({
-    keywordMatch: keywordStats.score,
+    keywordStats,
     semanticScore,
     sectionInfo,
     formatInfo,
-    missingKeywords: keywordStats.missingKeywords,
   });
 
   return {
@@ -269,12 +400,15 @@ function scoreResumeAgainstJob({ resumeText, jobDescription, targetRole }) {
         semantic_similarity: Number(semanticScore.toFixed(1)),
         section_completeness: Number(sectionInfo.score.toFixed(1)),
         format_quality: Number(formatInfo.score.toFixed(1)),
+        role_alignment: Number(roleScore.toFixed(1)),
       },
       keyword_stats: {
         total_keywords: keywordStats.totalKeywords,
         matched_count: keywordStats.matchedCount,
         matched_keywords: keywordStats.matchedKeywords,
         missing_keywords: keywordStats.missingKeywords,
+        required_coverage: Number(keywordStats.requiredCoverage.toFixed(1)),
+        preferred_coverage: Number(keywordStats.preferredCoverage.toFixed(1)),
       },
       extracted_profile: {
         email: contactSignals.email,
@@ -284,9 +418,10 @@ function scoreResumeAgainstJob({ resumeText, jobDescription, targetRole }) {
         years_experience: yearsExperience,
         sections_found: sectionInfo.sectionsFound,
         word_count: formatInfo.wordCount,
+        bullet_count: formatInfo.bulletCount,
       },
       recommendations,
-      source: 'ats-engine-resume-matcher-inspired-v1',
+      source: 'ats-engine-weighted-v2',
       attribution: {
         inspired_by: 'srbhr/Resume-Matcher',
         license: 'Apache-2.0',

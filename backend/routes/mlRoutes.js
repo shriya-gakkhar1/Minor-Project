@@ -4,6 +4,7 @@ const { predictCampusStats } = require('../services/campusPredictorEngine');
 const { extractResumeTextFromFile } = require('../services/resumeTextExtractor');
 const { scoreResumeAgainstJob } = require('../services/atsScorerEngine');
 const { optimizeResumePackage } = require('../services/ossResumeOptimizer');
+const { extractResumeSignalsFromText } = require('../services/resumeSignalExtractor');
 
 const router = express.Router();
 const upload = multer({
@@ -91,20 +92,23 @@ router.post('/campus-predict', (req, res) => {
   return res.json(prediction.data);
 });
 
-router.post('/resume-parse', (req, res) => {
-  const filename = String(req.body?.filename || 'resume.pdf').toLowerCase();
+router.post('/resume-parse', upload.single('resume'), async (req, res) => {
+  const extracted = await extractResumeTextFromFile(req.file, {
+    preferOcrForPdf: true,
+  });
+
+  if (!extracted.ok) {
+    return res.status(400).json({ message: extracted.error });
+  }
+
+  const parsedSignals = extractResumeSignalsFromText(extracted.text);
+  if (!parsedSignals.ok) {
+    return res.status(400).json({ message: parsedSignals.error });
+  }
 
   return res.json({
-    inferred_name: filename.replace(/\.[^.]+$/, ''),
-    inferred_branch: filename.includes('ece') ? 'ECE' : filename.includes('it') ? 'IT' : 'CSE',
-    flags: {
-      dsa: filename.includes('dsa') ? 1 : 0,
-      web_dev: filename.includes('web') || filename.includes('mern') ? 1 : 0,
-      machine_learning: filename.includes('ml') || filename.includes('machine') ? 1 : 0,
-      cloud: filename.includes('cloud') || filename.includes('aws') ? 1 : 0,
-    },
-    internships: filename.includes('intern') ? 1 : 0,
-    no_of_projects: filename.includes('project') ? 3 : 2,
+    ...parsedSignals.data,
+    extraction_source: extracted.source || 'unknown',
   });
 });
 
