@@ -1,12 +1,28 @@
 import { useState } from 'react';
 
+function readStorage(key) {
+  try {
+    return localStorage.getItem(key) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Keep UI responsive if storage access is blocked.
+  }
+}
+
 export default function SettingsModal({ onClose, onSaved }) {
-  const [sheetUrl, setSheetUrl] = useState(localStorage.getItem('placeiq-sheet-url') || '');
-  const [apiKey, setApiKey] = useState(localStorage.getItem('placeiq-gemini-key') || '');
+  const [sheetUrl, setSheetUrl] = useState(readStorage('placeiq-sheet-url'));
+  const [apiKey, setApiKey] = useState(readStorage('placeiq-gemini-key'));
 
   const handleSave = () => {
-    localStorage.setItem('placeiq-sheet-url', sheetUrl.trim());
-    localStorage.setItem('placeiq-gemini-key', apiKey.trim());
+    writeStorage('placeiq-sheet-url', sheetUrl.trim());
+    writeStorage('placeiq-gemini-key', apiKey.trim());
     onSaved();
   };
 

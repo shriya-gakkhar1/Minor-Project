@@ -35,8 +35,24 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function readStorage() {
+  try {
+    return localStorage.getItem(DB_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(value) {
+  try {
+    localStorage.setItem(DB_KEY, value);
+  } catch {
+    // Keep app functional when storage is unavailable.
+  }
+}
+
 export function loadDb() {
-  const raw = localStorage.getItem(DB_KEY);
+  const raw = readStorage();
   if (!raw) return clone(seedData);
 
   try {
@@ -53,7 +69,7 @@ export function loadDb() {
 }
 
 export function saveDb(nextState) {
-  localStorage.setItem(DB_KEY, JSON.stringify(nextState));
+  writeStorage(JSON.stringify(nextState));
   if (isOnlineMode()) {
     void pushStateToSupabase(nextState);
   }
@@ -61,7 +77,7 @@ export function saveDb(nextState) {
 }
 
 export function resetDb() {
-  localStorage.setItem(DB_KEY, JSON.stringify(seedData));
+  writeStorage(JSON.stringify(seedData));
   return clone(seedData);
 }
 
@@ -96,7 +112,7 @@ export async function hydrateFromOnline() {
       applications: Array.isArray(data.payload.applications) ? data.payload.applications : clone(seedData.applications),
     };
 
-    localStorage.setItem(DB_KEY, JSON.stringify(next));
+    writeStorage(JSON.stringify(next));
     return clone(next);
   } catch {
     return loadDb();

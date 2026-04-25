@@ -1,12 +1,20 @@
 import { useState } from 'react';
 import { generateAIInsights, generatePPTReport } from '../services/api';
 
+function getStoredValue(key) {
+  try {
+    return localStorage.getItem(key) || '';
+  } catch {
+    return '';
+  }
+}
+
 export default function ReportGenerator({ data }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
 
-  const apiKey = localStorage.getItem('placeiq-gemini-key') || '';
+  const apiKey = getStoredValue('placeiq-gemini-key');
 
   const handleGenerate = async () => {
     if (!apiKey) {

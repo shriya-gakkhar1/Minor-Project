@@ -7,14 +7,22 @@ import { importMigrationData, normalizeMigrationRows } from '../services/migrati
 import { setMode } from '../services/modeService';
 import { listStudents, enrichStudentsWithPlacement } from '../services/studentService';
 
-function buildViewState() {
-  const auth = getSession();
-  const students = listStudents();
-  const companies = listCompanies();
-  const applications = listApplications();
+function sanitizeRecords(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter((item) => item && typeof item === 'object');
+}
 
-  const companyMap = new Map(companies.map((company) => [company.id, company]));
-  const studentMap = new Map(students.map((student) => [student.id, student]));
+function buildViewState() {
+  const rawAuth = getSession();
+  const auth = rawAuth && typeof rawAuth === 'object'
+    ? rawAuth
+    : { role: 'guest', userId: null, name: null, email: null };
+  const students = sanitizeRecords(listStudents());
+  const companies = sanitizeRecords(listCompanies());
+  const applications = sanitizeRecords(listApplications());
+
+  const companyMap = new Map(companies.map((company) => [company.id, company]).filter(([id]) => Boolean(id)));
+  const studentMap = new Map(students.map((student) => [student.id, student]).filter(([id]) => Boolean(id)));
 
   const studentPlacementRows = enrichStudentsWithPlacement(students, applications, companies);
 
