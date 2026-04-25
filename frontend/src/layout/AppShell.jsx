@@ -1,6 +1,6 @@
 import { Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import { getNavItemsForRole } from '../components/navigationConfig';
 import Topbar from '../components/Topbar';
@@ -13,7 +13,6 @@ export default function AppShell() {
   const lastRefreshedAt = usePlacementStore((state) => state.lastRefreshedAt);
   const setDataMode = usePlacementStore((state) => state.setDataMode);
   const triggerRealtimeRefresh = usePlacementStore((state) => state.triggerRealtimeRefresh);
-  const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = useMemo(() => getNavItemsForRole(role), [role]);
@@ -45,10 +44,6 @@ export default function AppShell() {
 
     return () => clearInterval(timer);
   }, [triggerRealtimeRefresh]);
-
-  useEffect(() => {
-    setIsMobileMenuOpen(false);
-  }, [location.pathname]);
 
   return (
     <div className='pf-shell-bg flex min-h-screen bg-transparent'>
@@ -100,6 +95,7 @@ export default function AppShell() {
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    onClick={() => setIsMobileMenuOpen(false)}
                     className={({ isActive }) =>
                       `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
                         isActive
@@ -125,6 +121,7 @@ export default function AppShell() {
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    onClick={() => setIsMobileMenuOpen(false)}
                     className='block rounded-lg px-2 py-1.5 text-sm text-slate-700 transition hover:bg-white hover:text-slate-900'
                   >
                     {item.label}

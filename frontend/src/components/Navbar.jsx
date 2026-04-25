@@ -1,4 +1,4 @@
-export default function Navbar({ role, onRoleChange, onSettingsClick, lastRefresh, autoRefresh, onAutoRefreshToggle, onRefresh }) {
+export default function Navbar({ role, onRoleChange, onSettingsClick, autoRefresh, onAutoRefreshToggle, onRefresh }) {
   return (
     <nav className="sticky top-0 z-50 glass-strong">
       <div className="max-w-[1360px] mx-auto px-5 sm:px-8">

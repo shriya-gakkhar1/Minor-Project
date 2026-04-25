@@ -4,4 +4,12 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    preserveSymlinks: true,
+  },
+  optimizeDeps: {
+    disabled: true,
+    noDiscovery: true,
+    include: [],
+  },
 })

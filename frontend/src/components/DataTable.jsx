@@ -2,7 +2,7 @@ import { cn } from '../lib/utils';
 
 export default function DataTable({ columns, rows, emptyText = 'No rows found', className }) {
   return (
-    <div className={cn('overflow-hidden rounded-2xl border border-slate-200/90 bg-white/90 shadow-sm', className)}>
+    <div className={cn('overflow-hidden rounded-lg border border-slate-200/90 bg-white/90 shadow-sm', className)}>
       <div className='overflow-x-auto'>
         <table className='min-w-full divide-y divide-slate-200 text-sm'>
           <thead className='bg-slate-50/90'>

@@ -19,7 +19,6 @@ export default function InsightsLabPage() {
 
   useEffect(() => {
     let isActive = true;
-    setLoadingState({ loading: true, error: null });
 
     fetchInsightsSummary()
       .then((data) => {

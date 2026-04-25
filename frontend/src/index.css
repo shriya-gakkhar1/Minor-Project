@@ -29,9 +29,8 @@ body {
   font-family: 'Sora', system-ui, sans-serif;
   color: var(--pf-text);
   background:
-    radial-gradient(circle at 0% 0%, #e7f8f3 0, transparent 32%),
-    radial-gradient(circle at 100% 0%, #e7f3ff 0, transparent 28%),
-    radial-gradient(circle at 100% 100%, #fff2dd 0, transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(243, 247, 251, 0.9)),
+    linear-gradient(135deg, #eff8f5 0%, #f4f8fd 44%, #fff7e8 100%),
     var(--pf-bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -43,7 +42,7 @@ h3,
 h4,
 h5 {
   font-family: 'Manrope', system-ui, sans-serif;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 ::selection {
@@ -108,33 +107,6 @@ textarea {
 .pf-shell-bg {
   position: relative;
   isolation: isolate;
-}
-
-.pf-shell-bg::before,
-.pf-shell-bg::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  pointer-events: none;
-  border-radius: 999px;
-  filter: blur(44px);
-  opacity: 0.5;
-}
-
-.pf-shell-bg::before {
-  top: 2%;
-  left: 8%;
-  width: 280px;
-  height: 280px;
-  background: #bde8dc;
-}
-
-.pf-shell-bg::after {
-  right: 8%;
-  bottom: 3%;
-  width: 260px;
-  height: 260px;
-  background: #cde3ff;
 }
 
 .pf-float {

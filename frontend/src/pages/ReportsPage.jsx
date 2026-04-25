@@ -45,7 +45,6 @@ export default function ReportsPage() {
   // Get data from store - use separate selectors to avoid infinite loops
   const students = usePlacementStore((state) => state.students);
   const companies = usePlacementStore((state) => state.companies);
-  const applications = usePlacementStore((state) => state.applications);
   const studentPlacementRows = usePlacementStore((state) => state.studentPlacementRows);
 
   // Filter states

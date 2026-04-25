@@ -6,6 +6,26 @@ import {
 
 const COLORS = ['#6366f1', '#a78bfa', '#38bdf8', '#34d399', '#f472b6', '#fbbf24', '#f87171', '#818cf8'];
 
+function CustomTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="glass-strong border-[var(--color-border)] rounded-xl p-4 shadow-xl text-sm min-w-[150px]">
+      <p className="font-semibold text-white mb-2 pb-2 border-b border-[var(--color-border-light)]">{payload[0]?.payload?.fullName || label}</p>
+      <div className="space-y-1.5">
+        {payload.map((entry, i) => (
+          <div key={i} className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)]">
+              <span className="w-2 h-2 rounded-full" style={{ background: entry.color }}></span>
+              {entry.name}
+            </span>
+            <span className="font-semibold text-white">{entry.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ChartSection({ data }) {
   // Bar chart: Company vs Selected
   const barData = useMemo(() => {
@@ -53,26 +73,6 @@ export default function ChartSection({ data }) {
       }))
       .filter(r => r.value > 0);
   }, [data]);
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="glass-strong border-[var(--color-border)] rounded-xl p-4 shadow-xl text-sm min-w-[150px]">
-        <p className="font-semibold text-white mb-2 pb-2 border-b border-[var(--color-border-light)]">{payload[0]?.payload?.fullName || label}</p>
-        <div className="space-y-1.5">
-          {payload.map((entry, i) => (
-            <div key={i} className="flex items-center justify-between gap-4">
-              <span className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)]">
-                <span className="w-2 h-2 rounded-full" style={{ background: entry.color }}></span>
-                {entry.name}
-              </span>
-              <span className="font-semibold text-white">{entry.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   if (data.length === 0) return null;
 
@@ -134,8 +134,6 @@ export default function ChartSection({ data }) {
       {/* Pie Chart: Package Distribution */}
       {pieData.length > 0 && (
         <div className="gradient-border rounded-xl p-6 lg:col-span-2 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--color-accent)] opacity-5 rounded-full blur-[80px] -z-10"></div>
-          
           <h3 className="text-[15px] tracking-tight font-semibold text-[var(--color-text)] mb-2 flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-info)" strokeWidth="2.5"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
             Salary Package Distribution
