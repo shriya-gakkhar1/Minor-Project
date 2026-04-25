@@ -7,9 +7,4 @@ export default defineConfig({
   resolve: {
     preserveSymlinks: true,
   },
-  optimizeDeps: {
-    disabled: true,
-    noDiscovery: true,
-    include: [],
-  },
 })
