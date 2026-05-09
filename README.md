@@ -1,48 +1,60 @@
-# Placify — Placement Analytics Dashboard for TPOs
+# ATS & AI Resume Builder Toolbox
 
-Placify helps college placement cells understand and manage placement data better.
+A comprehensive, utility-suite style platform (similar to ILovePDF) designed for corporate hiring workflows and professional resume optimization. This platform provides an all-in-one suite of AI-powered tools for both recruiters (ATS) and candidates (Resume Building).
 
-It imports student placement data from Excel or CSV files and provides analytics, at-risk student detection, placement simulations, and report generation through an interactive dashboard.
+## Core Tools & Engines
 
-## Core Features
-
-- Dashboard with total students, placed students, unplaced students, placement percentage, average package, highest package, and companies visited
-- Branch-wise placement, company distribution, CGPA vs placement, and placement trend charts
-- Searchable student analytics table with branch and status filters
-- Transparent rule-based at-risk detection using CGPA, internships, skills, and projects
-- Placement simulator for checking how CGPA cutoff changes affect eligible students
-- Downloadable placement summary report
+- **ATS Scorer Engine**: Instantly evaluate resumes against job descriptions with an AI-powered scoring system.
+- **OSS Resume Optimizer**: Optimize formatting and content structure for maximum ATS compatibility.
+- **Campus Predictor Engine**: Data-driven insights to predict candidate success and match rates.
+- **Paddle OCR Bridge**: Advanced Optical Character Recognition to extract text and data accurately from PDF/image resumes.
+- **Resume Signal Extractor**: Automatically extract key skills, experiences, and education metrics from unstructured resume text.
 
 ## Tech Stack
 
-- React
-- Vite
-- TailwindCSS
-- shadcn-style UI components
-- lucide-react
-- Recharts
-- Zustand
-- PapaParse
-- SheetJS
-- localStorage
+- **Frontend**: React, Vite, TailwindCSS (Premium SaaS UI quality)
+- **Backend**: Node.js, Express (Workflow-driven API architecture)
+- **Machine Learning**: Python, PaddleOCR, Jupyter Notebooks for training
+- **State Management & Data**: Zustand, SheetJS, PapaParse
 
-## Viva Explanation
+## Project Structure
 
-Placify is a placement analytics dashboard for TPOs. It imports student placement data from Excel or CSV files and provides analytics, at-risk student detection, placement simulations, and report generation through an interactive dashboard.
+```text
+/backend  # Node.js API server & Engine Integrations (ATS, OCR, Optimizations)
+/frontend # React + Vite UI Suite
+/ml       # Python ML APIs & Jupyter Training Notebooks
+```
 
-## Run Locally
+## Getting Started
 
+### Prerequisites
+
+- Node.js (v18+)
+- Python (v3.9+)
+
+### Installation & Execution
+
+**1. Setup Backend:**
 ```bash
+cd backend
 npm install
 npm run dev
 ```
 
-## Import Format
-
-CSV or Excel files should contain columns like:
-
-```text
-id, name, branch, cgpa, status, package, company, internships, skills, projects, year
+**2. Setup Frontend:**
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-Common capitalized variants such as `Name`, `Branch`, `CGPA`, `Company`, and `Package` are also supported.
+**3. Setup ML Environment:**
+```bash
+cd ml/api
+pip install -r requirements.txt
+python app.py
+```
+
+## Vision
+
+The project features a suite of tools for hiring workflows over purely student-centric features. The architecture prioritizes a robust one-engine setup, ensuring each tool performs seamlessly as a standalone utility or an integrated suite.
