@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
+import { Database } from 'lucide-react';
 import { getNavItemsForRole } from './navigationConfig';
 import { cn } from '../lib/utils';
 
@@ -7,14 +7,14 @@ export default function Sidebar({ role }) {
   const navItems = getNavItemsForRole(role);
 
   return (
-    <aside className='hidden h-screen w-[272px] shrink-0 border-r border-slate-200/90 bg-white/85 backdrop-blur-md lg:block'>
-      <div className='flex h-16 items-center gap-3 border-b border-slate-200/90 px-5'>
-        <div className='pf-float rounded-xl bg-[linear-gradient(135deg,#0f5c8e,#0f766e)] p-2 text-white shadow-sm'>
-          <Building2 className='h-4 w-4' />
+    <aside className='hidden h-screen w-[272px] shrink-0 border-r border-[var(--pf-border)] bg-[var(--pf-surface-strong)] backdrop-blur-xl lg:block'>
+      <div className='flex h-16 items-center gap-3 border-b border-white/10 px-5'>
+        <div className='rounded-xl bg-slate-100 p-2 text-slate-950'>
+          <Database className='h-4 w-4' />
         </div>
         <div>
-          <p className='text-sm font-semibold text-slate-900'>Placify AI</p>
-          <p className='text-xs text-slate-500'>{role === 'admin' ? 'TPO Coordinator' : 'Student Workspace'}</p>
+          <p className='text-sm font-semibold text-white'>Placify AI</p>
+          <p className='text-xs text-slate-500'>{role === 'admin' ? 'Placement Intelligence' : 'Readiness Workspace'}</p>
         </div>
       </div>
 
@@ -29,8 +29,8 @@ export default function Sidebar({ role }) {
                 cn(
                   'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
                   isActive
-                    ? 'bg-teal-50 text-teal-800 shadow-[inset_0_0_0_1px_rgba(13,148,136,0.25)]'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+                    ? 'bg-gradient-to-r from-teal-300/18 to-sky-400/12 text-teal-50 shadow-[inset_0_0_0_1px_rgba(94,234,212,0.26)]'
+                    : 'text-slate-400 hover:bg-white/[0.055] hover:text-slate-100',
                 )
               }
             >
@@ -42,10 +42,10 @@ export default function Sidebar({ role }) {
       </nav>
 
       <div className='p-3'>
-        <div className='rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50 to-sky-50 p-3'>
-          <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>Placement Pulse</p>
-          <p className='mt-1 text-sm font-semibold text-slate-900'>AI-assisted decision layer active</p>
-          <p className='mt-1 text-xs text-slate-600'>Use Insights + Predictors for faster weekly planning.</p>
+        <div className='rounded-2xl border border-white/10 bg-white/[0.035] p-3'>
+          <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>Workflow</p>
+          <p className='mt-1 text-sm font-semibold text-white'>Ingest, validate, analyze.</p>
+          <p className='mt-1 text-xs text-slate-400'>Start with data ingestion, then review risks and reports.</p>
         </div>
       </div>
     </aside>

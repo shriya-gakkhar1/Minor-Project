@@ -23,7 +23,7 @@ export async function generateAiReport({ apiKey, summary }) {
 
 export function generateLocalReport(summary) {
   return [
-    'PlaceFlow Report',
+    'Placify AI Placement Report',
     '',
     `Total Students: ${summary.totalStudents}`,
     `Total Applications: ${summary.totalApplications}`,

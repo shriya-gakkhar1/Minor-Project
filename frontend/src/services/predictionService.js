@@ -23,9 +23,9 @@ function safeRate(part, total) {
 
 function normalizeStatus(value) {
   const key = String(value || '').toLowerCase();
+  if (key.includes('unplaced') || key.includes('not placed') || key.includes('reject')) return 'Rejected';
   if (key.includes('select') || key.includes('place') || key.includes('hire') || key.includes('offer')) return 'Selected';
   if (key.includes('interview') || key.includes('shortlist')) return 'Interview';
-  if (key.includes('reject')) return 'Rejected';
   return 'Applied';
 }
 
@@ -250,6 +250,21 @@ export async function recommendSkills(input, options = {}) {
   return localRecommendSkills(model);
 }
 
+export async function predictPlacementMatch({ student, job }, options = {}) {
+  const shouldUseBackend = options.preferBackend !== false;
+
+  if (shouldUseBackend) {
+    try {
+      const { data } = await api.post('/placement-predict', { student, job });
+      return data;
+    } catch {
+      // UI pages use the local explainable engine as the fallback path.
+    }
+  }
+
+  return null;
+}
+
 export async function parseResumeSignals(file) {
   if (!file) {
     throw new Error('Resume file is required.');
@@ -274,6 +289,18 @@ export async function parseResumeSignals(file) {
         machine_learning: Number(data.flags?.machine_learning || 0),
         cloud: Number(data.flags?.cloud || 0),
       },
+      skills: Array.isArray(data.skills) ? data.skills : [],
+      technologies: Array.isArray(data.technologies) ? data.technologies : [],
+      certifications: Array.isArray(data.certifications) ? data.certifications : [],
+      github: data.github || '',
+      linkedin: data.linkedin || '',
+      resumeScore: Number(data.resumeScore || 0),
+      atsScore: Number(data.atsScore || 0),
+      keywordScore: Number(data.keywordScore || 0),
+      formattingScore: Number(data.formattingScore || 0),
+      resumeCompletenessScore: Number(data.resumeCompletenessScore || 0),
+      projectQualityScore: Number(data.projectQualityScore || 0),
+      roleAlignmentScore: Number(data.roleAlignmentScore || 0),
       internships: Number(data.internships || 0),
       no_of_projects: Number(data.no_of_projects || 0),
       no_of_programming_languages: Number(data.no_of_programming_languages || 3),
@@ -282,6 +309,20 @@ export async function parseResumeSignals(file) {
   } catch (error) {
     const message = error?.response?.data?.message || 'Could not parse resume from file content.';
     throw new Error(message);
+  }
+}
+
+export async function getOcrStatus() {
+  try {
+    const { data } = await api.get('/ocr-status');
+    return data;
+  } catch {
+    return {
+      available: false,
+      engine: 'PaddleOCR',
+      mode: 'unknown',
+      note: 'Backend OCR status endpoint is unavailable.',
+    };
   }
 }
 

@@ -1,406 +1,314 @@
-import { BarChart3, BrainCircuit, Building2, CheckCircle2, ShieldCheck, Sparkles, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowRight, BarChart3, CheckCircle2, Database, Moon, Sparkles, Sun } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login, signup } from '../services/authService';
 import { usePlacementStore } from '../store/usePlacementStore';
 
-const featureTiles = [
-  {
-    title: 'Placement Insights',
-    subtitle: 'journal + ML layer',
-    icon: BarChart3,
-  },
-  {
-    title: 'TPO Coordinator',
-    subtitle: 'workflow command center',
-    icon: Building2,
-  },
-  {
-    title: 'Student',
-    subtitle: 'profile + predictor + actions',
-    icon: UserRound,
-  },
-];
+const DEMO = {
+  admin: { email: 'admin@placify.edu', password: 'admin123', label: 'TPO Demo' },
+  student: { email: 'student@placify.edu', password: 'student123', label: 'Student Demo' },
+};
 
-function fieldClass() {
-  return 'h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-teal-400 focus:ring-2 focus:ring-teal-100';
+function useLoginTheme() {
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('placify-theme') || 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    try {
+      localStorage.setItem('placify-theme', theme);
+    } catch {
+      // Keep theme local to the session when storage is unavailable.
+    }
+  }, [theme]);
+
+  return [theme, setTheme];
+}
+
+function DemoPreviewCard() {
+  return (
+    <div className='rounded-[32px] border border-[var(--pf-border)] bg-[var(--pf-surface-strong)] p-5 shadow-[var(--pf-shadow)] backdrop-blur-2xl'>
+      <div className='flex items-center justify-between'>
+        <div>
+          <p className='text-sm font-semibold text-[var(--pf-text)]'>Placement Overview</p>
+          <p className='text-xs text-[var(--pf-muted)]'>Generated after importing student data</p>
+        </div>
+        <span className='rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200'>
+          Ready
+        </span>
+      </div>
+
+      <div className='mt-5 grid gap-3 sm:grid-cols-3'>
+        {[
+          ['Students', '1,248'],
+          ['Eligible', '742'],
+          ['At Risk', '214'],
+        ].map(([label, value]) => (
+          <div key={label} className='rounded-3xl border border-[var(--pf-border)] bg-white/70 p-4 dark:bg-white/5'>
+            <p className='text-xs text-[var(--pf-muted)]'>{label}</p>
+            <p className='mt-2 text-2xl font-semibold text-[var(--pf-text)]'>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className='mt-5 rounded-3xl border border-[var(--pf-border)] bg-white/70 p-4 dark:bg-white/5'>
+        <div className='mb-3 flex items-center justify-between'>
+          <p className='text-sm font-semibold text-[var(--pf-text)]'>Branch Readiness</p>
+          <BarChart3 className='h-4 w-4 text-sky-500' />
+        </div>
+        <div className='space-y-3'>
+          {[
+            ['CSE', 82, 'bg-sky-400'],
+            ['IT', 74, 'bg-teal-400'],
+            ['ECE', 58, 'bg-violet-400'],
+          ].map(([label, value, color]) => (
+            <div key={label}>
+              <div className='mb-1 flex justify-between text-xs text-[var(--pf-muted)]'>
+                <span>{label}</span>
+                <span>{value}%</span>
+              </div>
+              <div className='h-2 rounded-full bg-slate-200 dark:bg-slate-800'>
+                <div className={`h-2 rounded-full ${color}`} style={{ width: `${value}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function Login() {
-  const [isSignup, setIsSignup] = useState(false);
   const [role, setRole] = useState('admin');
-  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState(DEMO.admin.email);
+  const [password, setPassword] = useState(DEMO.admin.password);
+  const [isSignup, setIsSignup] = useState(false);
+  const [name, setName] = useState('');
+  const [cgpa, setCgpa] = useState('');
   const [error, setError] = useState('');
-
+  const [loading, setLoading] = useState(false);
+  const [theme, setTheme] = useLoginTheme();
   const navigate = useNavigate();
   const refreshData = usePlacementStore((state) => state.refreshData);
 
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-
-  const [signupName, setSignupName] = useState('');
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
-  const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
-  const [signupPhone, setSignupPhone] = useState('');
-  const [signupCgpa, setSignupCgpa] = useState('');
-
-  const handleQuickLogin = (selectedRole) => {
-    setRole(selectedRole);
-    if (selectedRole === 'admin') {
-      setLoginEmail('admin@placeflow.edu');
-      setLoginPassword('admin123');
-    } else {
-      setLoginEmail('student@placeflow.edu');
-      setLoginPassword('student123');
-    }
-  };
-
-  const resetForms = () => {
+  const applyDemoRole = (nextRole) => {
+    setRole(nextRole);
+    setEmail(DEMO[nextRole].email);
+    setPassword(DEMO[nextRole].password);
     setError('');
-    setLoginEmail('');
-    setLoginPassword('');
-    setSignupName('');
-    setSignupEmail('');
-    setSignupPassword('');
-    setSignupConfirmPassword('');
-    setSignupPhone('');
-    setSignupCgpa('');
   };
 
-  const handleToggleMode = (nextSignupMode) => {
-    setIsSignup(nextSignupMode);
-    resetForms();
-  };
-
-  const handleLoginSubmit = async (event) => {
+  const handleLogin = async (event) => {
     event.preventDefault();
+    setLoading(true);
     setError('');
-    setIsLoading(true);
 
-    const result = await login(role, loginEmail, loginPassword);
+    const result = await login(role, email, password);
     if (result.ok) {
       refreshData();
-      navigate(role === 'admin' ? '/dashboard' : '/student');
+      navigate(role === 'admin' ? '/tpo/dashboard' : '/student/dashboard');
     } else {
-      setError(result.error || 'Login failed');
+      setError(result.error || 'Could not sign in. Check the demo credentials.');
     }
 
-    setIsLoading(false);
+    setLoading(false);
   };
 
-  const handleSignupSubmit = async (event) => {
+  const handleSignup = async (event) => {
     event.preventDefault();
+    setLoading(true);
     setError('');
 
-    if (!signupName.trim()) {
-      setError('Name is required');
-      return;
-    }
-    if (!signupEmail.trim()) {
-      setError('Email is required');
-      return;
-    }
-    if (!signupPassword) {
-      setError('Password is required');
-      return;
-    }
-    if (signupPassword !== signupConfirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-    if (signupPassword.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-    if (signupCgpa && (isNaN(signupCgpa) || Number(signupCgpa) < 0 || Number(signupCgpa) > 10)) {
-      setError('CGPA must be between 0 and 10');
-      return;
-    }
-
-    setIsLoading(true);
-    const profileData = {
-      name: signupName,
-      phone: signupPhone,
-      cgpa: signupCgpa ? Number.parseFloat(signupCgpa) : 0,
+    const result = await signup(email, password, {
+      name: name || email,
+      cgpa: cgpa ? Number(cgpa) : 0,
+      phone: '',
       interests: [],
       activeBacklogs: 0,
-    };
+    });
 
-    const result = await signup(signupEmail, signupPassword, profileData);
     if (result.ok) {
       refreshData();
-      navigate('/student');
+      navigate('/student/dashboard');
     } else {
-      setError(result.error || 'Signup failed');
+      setError(result.error || 'Could not create account.');
     }
 
-    setIsLoading(false);
+    setLoading(false);
   };
 
   return (
-    <div className='pf-shell-bg min-h-screen px-4 py-8 md:px-6'>
-      <div className='mx-auto grid w-full max-w-[1220px] gap-6 lg:grid-cols-[1.2fr_1fr]'>
-        <section className='pf-enter rounded-3xl border border-slate-200/90 bg-white/85 p-6 shadow-[var(--pf-shadow)] backdrop-blur-sm md:p-8'>
-          <div className='flex flex-wrap items-center justify-between gap-3'>
-            <div className='flex items-center gap-3'>
-              <div className='pf-float rounded-xl bg-[linear-gradient(135deg,#0f5c8e,#0f766e)] p-2 text-white'>
-                <BrainCircuit className='h-5 w-5' />
-              </div>
-              <div>
-                <p className='text-sm font-semibold tracking-[0.12em] text-slate-900'>PLACIFY AI</p>
-                <p className='text-xs text-slate-500'>Placement Intelligence Platform</p>
-              </div>
-            </div>
-            <button
-              type='button'
-              onClick={() => setIsSignup(false)}
-              className='rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50'
-            >
-              Sign In
-            </button>
+    <div className='pf-shell-bg min-h-screen px-4 py-6 text-[var(--pf-text)] md:px-6'>
+      <header className='mx-auto flex max-w-[1120px] items-center justify-between rounded-[28px] border border-[var(--pf-border)] bg-[var(--pf-surface-strong)] px-4 py-3 shadow-[var(--pf-shadow)] backdrop-blur-2xl'>
+        <div className='flex items-center gap-3'>
+          <div className='grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-sky-400 to-teal-300 text-white shadow-lg shadow-sky-400/20'>
+            <Database className='h-5 w-5' />
+          </div>
+          <div>
+            <p className='font-semibold text-[var(--pf-text)]'>Placify</p>
+            <p className='text-xs text-[var(--pf-muted)]'>Placement made simple</p>
+          </div>
+        </div>
+
+        <button
+          type='button'
+          onClick={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
+          className='grid h-10 w-10 place-items-center rounded-2xl border border-[var(--pf-border)] bg-white/70 text-slate-700 dark:bg-white/5 dark:text-slate-200'
+          title='Toggle theme'
+        >
+          {theme === 'dark' ? <Sun className='h-4 w-4' /> : <Moon className='h-4 w-4' />}
+        </button>
+      </header>
+
+      <main className='mx-auto grid max-w-[1120px] gap-8 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center'>
+        <section>
+          <div className='inline-flex items-center gap-2 rounded-full border border-[var(--pf-border)] bg-white/70 px-3 py-1 text-sm text-[var(--pf-muted)] shadow-sm dark:bg-white/5'>
+            <Sparkles className='h-4 w-4 text-sky-500' />
+            Demo credentials ready
           </div>
 
-          <div className='mt-5 grid gap-3 sm:grid-cols-3'>
-            {featureTiles.map((tile) => {
-              const Icon = tile.icon;
-              return (
-                <div key={tile.title} className='rounded-2xl border border-slate-200 bg-slate-50 p-3'>
-                  <Icon className='h-4 w-4 text-teal-700' />
-                  <p className='mt-2 text-sm font-semibold text-slate-900'>{tile.title}</p>
-                  <p className='text-xs text-slate-500'>{tile.subtitle}</p>
-                </div>
-              );
-            })}
+          <h1 className='mt-6 max-w-2xl text-4xl font-extrabold tracking-tight text-[var(--pf-text)] md:text-6xl'>
+            Turn student data into a clean placement dashboard.
+          </h1>
+          <p className='mt-5 max-w-xl text-base leading-8 text-[var(--pf-muted)]'>
+            Paste a Google Sheet, upload Excel, or use the demo data. Placify instantly shows eligible students,
+            placement progress, resume gaps, and students who need help.
+          </p>
+
+          <div className='mt-8 grid gap-3 sm:grid-cols-3'>
+            {['Import data', 'See charts', 'Export reports'].map((item) => (
+              <div key={item} className='flex items-center gap-2 rounded-2xl border border-[var(--pf-border)] bg-white/65 px-4 py-3 text-sm font-semibold text-[var(--pf-text)] shadow-sm dark:bg-white/5'>
+                <CheckCircle2 className='h-4 w-4 text-teal-500' />
+                {item}
+              </div>
+            ))}
           </div>
 
-          <div className='mt-6 grid gap-4 md:grid-cols-2'>
-            <div className='rounded-2xl border border-slate-200 bg-white p-4'>
-              <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>What We Offer</p>
-              <div className='mt-3 space-y-2 text-sm text-slate-700'>
-                <p className='flex items-center gap-2'><CheckCircle2 className='h-4 w-4 text-teal-600' />Campus insights and analytics</p>
-                <p className='flex items-center gap-2'><CheckCircle2 className='h-4 w-4 text-teal-600' />Student placement predictor</p>
-                <p className='flex items-center gap-2'><CheckCircle2 className='h-4 w-4 text-teal-600' />Workflow and report automation</p>
-                <p className='flex items-center gap-2'><CheckCircle2 className='h-4 w-4 text-teal-600' />Resume-assisted recommendations</p>
-                <p className='flex items-center gap-2'><CheckCircle2 className='h-4 w-4 text-teal-600' />Resume Studio: OCR + ATS + PDF export</p>
-              </div>
-            </div>
-
-            <div className='rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50 to-sky-50 p-4'>
-              <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>Flow Outcome</p>
-              <p className='mt-2 text-lg font-semibold text-slate-900'>From logs to placement momentum</p>
-              <p className='mt-2 text-sm text-slate-600'>Built for clear daily decisions with low-friction execution.</p>
-              <div className='mt-3 flex items-center gap-2 text-xs text-slate-600'>
-                <Sparkles className='h-4 w-4 text-amber-500' />
-                Enhanced implementation inspired by team sketch
-              </div>
-            </div>
-          </div>
-
-          <div className='mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4'>
-            <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>Execution Snapshot</p>
-            <div className='mt-3 grid gap-2 text-sm sm:grid-cols-2'>
-              <p className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700'>1. Sign in as TPO or Student</p>
-              <p className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700'>2. Use predictor and insights views</p>
-              <p className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700'>3. Track pipeline and status flow</p>
-              <p className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700'>4. Generate ATS-ready resumes and reports</p>
-            </div>
+          <div className='mt-8 hidden lg:block'>
+            <DemoPreviewCard />
           </div>
         </section>
 
-        <section className='pf-enter rounded-3xl border border-slate-200/90 bg-white/90 p-6 shadow-[var(--pf-shadow)] backdrop-blur-sm md:p-8'>
-          <div className='mb-5 flex items-center justify-between gap-3'>
-            <h2 className='text-xl font-semibold text-slate-900'>{isSignup ? 'Create Student Account' : 'Sign In'}</h2>
-            <span className='rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700'>
-              Secure Access
-            </span>
+        <section className='rounded-[34px] border border-[var(--pf-border)] bg-[var(--pf-surface-strong)] p-5 shadow-[var(--pf-shadow)] backdrop-blur-2xl md:p-7'>
+          <div className='mb-6'>
+            <p className='text-sm font-semibold text-sky-600 dark:text-sky-300'>Explore demo</p>
+            <h2 className='mt-2 text-2xl font-bold text-[var(--pf-text)]'>
+              {isSignup ? 'Create student account' : 'Sign in instantly'}
+            </h2>
+            <p className='mt-2 text-sm text-[var(--pf-muted)]'>
+              Use the ready credentials for a smooth college demo.
+            </p>
           </div>
 
           {!isSignup ? (
-            <>
-              <div className='mb-5'>
-                <p className='mb-2 text-sm font-medium text-slate-700'>Select Role</p>
-                <div className='grid grid-cols-2 gap-2'>
+            <form onSubmit={handleLogin} className='space-y-4'>
+              <div className='grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 dark:bg-slate-900'>
+                {['admin', 'student'].map((item) => (
                   <button
+                    key={item}
                     type='button'
-                    onClick={() => handleQuickLogin('admin')}
-                    className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                      role === 'admin'
-                        ? 'border-teal-300 bg-teal-50 text-teal-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    onClick={() => applyDemoRole(item)}
+                    className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+                      role === item
+                        ? 'bg-white text-sky-700 shadow-sm dark:bg-slate-800 dark:text-sky-200'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                     }`}
                   >
-                    TPO Coordinator
+                    {DEMO[item].label}
                   </button>
-                  <button
-                    type='button'
-                    onClick={() => handleQuickLogin('student')}
-                    className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                      role === 'student'
-                        ? 'border-teal-300 bg-teal-50 text-teal-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    Student
-                  </button>
-                </div>
+                ))}
               </div>
 
-              <form onSubmit={handleLoginSubmit} className='space-y-3'>
-                <div>
-                  <label className='mb-1 block text-sm font-medium text-slate-700'>Email</label>
-                  <input
-                    type='email'
-                    value={loginEmail}
-                    onChange={(event) => setLoginEmail(event.target.value)}
-                    className={fieldClass()}
-                    placeholder='Enter your email'
-                    required
-                  />
-                </div>
+              <div className='rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200'>
+                Demo Credentials Ready
+              </div>
 
-                <div>
-                  <label className='mb-1 block text-sm font-medium text-slate-700'>Password</label>
-                  <input
-                    type='password'
-                    value={loginPassword}
-                    onChange={(event) => setLoginPassword(event.target.value)}
-                    className={fieldClass()}
-                    placeholder='Enter your password'
-                    required
-                  />
-                </div>
+              <label className='block'>
+                <span className='mb-1 block text-sm font-semibold text-[var(--pf-text)]'>Email</span>
+                <input
+                  type='email'
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className='h-12 w-full rounded-2xl border border-[var(--pf-border)] bg-white/80 px-4 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40 dark:bg-white/5 dark:text-white'
+                />
+              </label>
 
-                {error ? (
-                  <div className='rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>{error}</div>
-                ) : null}
+              <label className='block'>
+                <span className='mb-1 block text-sm font-semibold text-[var(--pf-text)]'>Password</span>
+                <input
+                  type='password'
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className='h-12 w-full rounded-2xl border border-[var(--pf-border)] bg-white/80 px-4 text-sm text-slate-900 outline-none transition focus:border-sky-300 focus:ring-4 focus:ring-sky-200/40 dark:bg-white/5 dark:text-white'
+                />
+              </label>
 
-                <button
-                  type='submit'
-                  disabled={isLoading}
-                  className='h-11 w-full rounded-xl bg-[linear-gradient(135deg,#0f5c8e,#0f766e)] text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60'
-                >
-                  {isLoading ? 'Signing in...' : 'Sign In'}
-                </button>
-              </form>
+              {error ? <p className='rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-400/10 dark:text-rose-200'>{error}</p> : null}
 
-              {role === 'student' ? (
-                <button
-                  type='button'
-                  onClick={() => handleToggleMode(true)}
-                  className='mt-4 w-full rounded-xl border border-slate-200 bg-white py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50'
-                >
-                  Create New Account
-                </button>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <form onSubmit={handleSignupSubmit} className='space-y-3'>
-                <div>
-                  <label className='mb-1 block text-sm font-medium text-slate-700'>Full Name</label>
-                  <input
-                    type='text'
-                    value={signupName}
-                    onChange={(event) => setSignupName(event.target.value)}
-                    className={fieldClass()}
-                    placeholder='Enter your full name'
-                  />
-                </div>
-
-                <div>
-                  <label className='mb-1 block text-sm font-medium text-slate-700'>Email</label>
-                  <input
-                    type='email'
-                    value={signupEmail}
-                    onChange={(event) => setSignupEmail(event.target.value)}
-                    className={fieldClass()}
-                    placeholder='Enter your email'
-                  />
-                </div>
-
-                <div>
-                  <label className='mb-1 block text-sm font-medium text-slate-700'>Password</label>
-                  <input
-                    type='password'
-                    value={signupPassword}
-                    onChange={(event) => setSignupPassword(event.target.value)}
-                    className={fieldClass()}
-                    placeholder='At least 6 characters'
-                  />
-                </div>
-
-                <div>
-                  <label className='mb-1 block text-sm font-medium text-slate-700'>Confirm Password</label>
-                  <input
-                    type='password'
-                    value={signupConfirmPassword}
-                    onChange={(event) => setSignupConfirmPassword(event.target.value)}
-                    className={fieldClass()}
-                    placeholder='Confirm your password'
-                  />
-                </div>
-
-                <div className='grid grid-cols-2 gap-3'>
-                  <div>
-                    <label className='mb-1 block text-sm font-medium text-slate-700'>Phone</label>
-                    <input
-                      type='tel'
-                      value={signupPhone}
-                      onChange={(event) => setSignupPhone(event.target.value)}
-                      className={fieldClass()}
-                      placeholder='Optional'
-                    />
-                  </div>
-
-                  <div>
-                    <label className='mb-1 block text-sm font-medium text-slate-700'>CGPA</label>
-                    <input
-                      type='number'
-                      min='0'
-                      max='10'
-                      step='0.01'
-                      value={signupCgpa}
-                      onChange={(event) => setSignupCgpa(event.target.value)}
-                      className={fieldClass()}
-                      placeholder='0-10'
-                    />
-                  </div>
-                </div>
-
-                {error ? (
-                  <div className='rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>{error}</div>
-                ) : null}
-
-                <button
-                  type='submit'
-                  disabled={isLoading}
-                  className='h-11 w-full rounded-xl bg-[linear-gradient(135deg,#0f5c8e,#0f766e)] text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60'
-                >
-                  {isLoading ? 'Creating account...' : 'Create Account'}
-                </button>
-              </form>
+              <button
+                type='submit'
+                disabled={loading}
+                className='group flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-500 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:-translate-y-0.5 hover:bg-sky-600 disabled:opacity-60'
+              >
+                {loading ? 'Opening dashboard...' : 'Explore Demo Dashboard'}
+                <ArrowRight className='h-4 w-4 transition group-hover:translate-x-0.5' />
+              </button>
 
               <button
                 type='button'
-                onClick={() => handleToggleMode(false)}
-                className='mt-4 w-full rounded-xl border border-slate-200 bg-white py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50'
+                onClick={() => {
+                  setIsSignup(true);
+                  setRole('student');
+                  setEmail('');
+                  setPassword('');
+                }}
+                className='w-full rounded-2xl border border-[var(--pf-border)] bg-white/60 py-3 text-sm font-semibold text-[var(--pf-muted)] transition hover:bg-white hover:text-[var(--pf-text)] dark:bg-white/5 dark:hover:bg-white/10'
               >
-                Back to Sign In
+                Create a student account
               </button>
-            </>
-          )}
+            </form>
+          ) : (
+            <form onSubmit={handleSignup} className='space-y-4'>
+              <label className='block'>
+                <span className='mb-1 block text-sm font-semibold text-[var(--pf-text)]'>Name</span>
+                <input value={name} onChange={(event) => setName(event.target.value)} className='h-12 w-full rounded-2xl border border-[var(--pf-border)] bg-white/80 px-4 text-sm text-slate-900 outline-none dark:bg-white/5 dark:text-white' />
+              </label>
+              <label className='block'>
+                <span className='mb-1 block text-sm font-semibold text-[var(--pf-text)]'>Email</span>
+                <input type='email' value={email} onChange={(event) => setEmail(event.target.value)} className='h-12 w-full rounded-2xl border border-[var(--pf-border)] bg-white/80 px-4 text-sm text-slate-900 outline-none dark:bg-white/5 dark:text-white' />
+              </label>
+              <div className='grid gap-3 sm:grid-cols-2'>
+                <label className='block'>
+                  <span className='mb-1 block text-sm font-semibold text-[var(--pf-text)]'>Password</span>
+                  <input type='password' value={password} onChange={(event) => setPassword(event.target.value)} className='h-12 w-full rounded-2xl border border-[var(--pf-border)] bg-white/80 px-4 text-sm text-slate-900 outline-none dark:bg-white/5 dark:text-white' />
+                </label>
+                <label className='block'>
+                  <span className='mb-1 block text-sm font-semibold text-[var(--pf-text)]'>CGPA</span>
+                  <input type='number' min='0' max='10' step='0.01' value={cgpa} onChange={(event) => setCgpa(event.target.value)} className='h-12 w-full rounded-2xl border border-[var(--pf-border)] bg-white/80 px-4 text-sm text-slate-900 outline-none dark:bg-white/5 dark:text-white' />
+                </label>
+              </div>
 
-          <div className='mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600'>
-            <p className='mb-2 flex items-center gap-2 font-semibold text-slate-700'>
-              <ShieldCheck className='h-4 w-4 text-teal-700' />
-              Demo Credentials
-            </p>
-            <p>Admin: admin@placeflow.edu / admin123</p>
-            <p>Student: student@placeflow.edu / student123</p>
-          </div>
+              {error ? <p className='rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-400/10 dark:text-rose-200'>{error}</p> : null}
+
+              <button type='submit' disabled={loading} className='h-12 w-full rounded-2xl bg-sky-500 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:-translate-y-0.5 hover:bg-sky-600 disabled:opacity-60'>
+                {loading ? 'Creating...' : 'Create Account'}
+              </button>
+              <button type='button' onClick={() => applyDemoRole('admin') || setIsSignup(false)} className='w-full rounded-2xl border border-[var(--pf-border)] bg-white/60 py-3 text-sm font-semibold text-[var(--pf-muted)] dark:bg-white/5'>
+                Back to demo login
+              </button>
+            </form>
+          )}
         </section>
-      </div>
+
+        <div className='lg:hidden'>
+          <DemoPreviewCard />
+        </div>
+      </main>
     </div>
   );
 }

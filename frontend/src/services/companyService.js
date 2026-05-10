@@ -1,14 +1,44 @@
 import { loadDb, makeId, saveDb } from './dbService';
 
 function normalizeCompany(payload) {
+  const requiredSkills = String(payload.requiredSkills || payload.skills || '')
+    .split(/[,;|]/)
+    .map((skill) => skill.trim())
+    .filter(Boolean);
+  const preferredSkills = String(payload.preferredSkills || '')
+    .split(/[,;|]/)
+    .map((skill) => skill.trim())
+    .filter(Boolean);
+  const preferredCertifications = String(payload.preferredCertifications || '')
+    .split(/[,;|]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const preferredTechnologies = String(payload.preferredTechnologies || '')
+    .split(/[,;|]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
   return {
     id: payload.id || makeId('cmp'),
     name: String(payload.name || '').trim(),
+    company: String(payload.name || '').trim(),
     role: String(payload.role || '').trim(),
-    package: Number(payload.package || 0),
-    eligibility: Number(payload.eligibility || 0),
+    description: String(payload.description || '').trim(),
+    package: Number(payload.package || payload.packageLpa || 0),
+    packageLpa: Number(payload.package || payload.packageLpa || 0),
+    eligibility: Number(payload.eligibility || payload.minCgpa || 0),
+    minCgpa: Number(payload.eligibility || payload.minCgpa || 0),
+    minAttendance: Number(payload.minAttendance || 75),
+    maxBacklogs: Number(payload.maxBacklogs || 0),
     deadline: payload.deadline || '',
-    branch: payload.branch || 'All',
+    branch: payload.branch || payload.eligibleBranches || 'All',
+    eligibleBranches: payload.eligibleBranches || payload.branch || 'All',
+    requiredSkills,
+    preferredSkills,
+    preferredCertifications,
+    preferredTechnologies,
+    internshipPreference: payload.internshipPreference || 'Preferred',
+    status: payload.status || 'Open',
   };
 }
 

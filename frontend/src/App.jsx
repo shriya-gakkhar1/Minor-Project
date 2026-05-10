@@ -6,37 +6,50 @@ import Login from './pages/Login';
 
 import { usePlacementStore } from './store/usePlacementStore';
 
-// Lazy loaded pages
 const AddCompanyPage = lazy(() => import('./pages/AddCompanyPage'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
-const CampusPredictorPage = lazy(() => import('./pages/CampusPredictorPage'));
-const InsightsLabPage = lazy(() => import('./pages/InsightsLabPage'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const MigrationPage = lazy(() => import('./pages/MigrationPage'));
+const MockInterviewPage = lazy(() => import('./pages/MockInterviewPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const ResumeStudioPage = lazy(() => import('./pages/ResumeStudioPage'));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
-const StudentPredictorPage = lazy(() => import('./pages/StudentPredictorPage'));
 const StudentProfile = lazy(() => import('./pages/StudentProfile'));
 const StudentsPage = lazy(() => import('./pages/StudentsPage'));
 
-// 🔐 Authentication Guard - Redirects to login if not authenticated
 function AuthGuard({ children }) {
   const auth = usePlacementStore((state) => state.auth);
 
   if (!auth || auth.role === 'guest' || !auth.role) {
-    return <Navigate to='/' replace />;
+    return <Navigate to='/login' replace />;
   }
 
   return children;
 }
 
-// 🔐 Admin Protection
 function AdminOnly({ children }) {
   const role = usePlacementStore((state) => state.role);
 
-  if (role !== 'admin') return <Navigate to='/student' replace />;
+  if (role !== 'admin') return <Navigate to='/student/dashboard' replace />;
 
   return children;
+}
+
+function StudentOnly({ children }) {
+  const role = usePlacementStore((state) => state.role);
+
+  if (role !== 'student') return <Navigate to='/tpo/dashboard' replace />;
+
+  return children;
+}
+
+function PublicHome() {
+  const auth = usePlacementStore((state) => state.auth);
+
+  if (auth?.role === 'admin') return <Navigate to='/tpo/dashboard' replace />;
+  if (auth?.role === 'student') return <Navigate to='/student/dashboard' replace />;
+
+  return <LandingPage />;
 }
 
 export default function App() {
@@ -44,10 +57,9 @@ export default function App() {
     <Suspense fallback={<div className='p-6'><Skeleton className='h-16 w-full' /></div>}>
       <Routes>
 
-        {/* 🔓 Public Route */}
-        <Route path="/" element={<Login />} />
+        <Route path="/" element={<PublicHome />} />
+        <Route path="/login" element={<Login />} />
 
-        {/* 🔒 Protected Layout */}
         <Route
           element={
             <AuthGuard>
@@ -55,126 +67,68 @@ export default function App() {
             </AuthGuard>
           }
         >
-          {/* Admin Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <AdminOnly>
-                <AdminDashboard />
-              </AdminOnly>
-            }
-          />
+          <Route path="/dashboard" element={<Navigate to='/tpo/dashboard' replace />} />
+          <Route path="/students" element={<Navigate to='/tpo/students' replace />} />
+          <Route path="/migration" element={<Navigate to='/tpo/ingest' replace />} />
+          <Route path="/add-company" element={<Navigate to='/tpo/drives' replace />} />
+          <Route path="/reports" element={<Navigate to='/tpo/reports' replace />} />
+          <Route path="/insights-lab" element={<Navigate to='/tpo/dashboard' replace />} />
+          <Route path="/campus-predictor" element={<Navigate to='/tpo/dashboard' replace />} />
+          <Route path="/student-predictor" element={<Navigate to='/student/dashboard' replace />} />
+          <Route path="/resume-studio" element={<Navigate to='/student/resume' replace />} />
+          <Route path="/mock-interview" element={<Navigate to='/student/mock-interview' replace />} />
 
           <Route
-            path="/students"
-            element={
-              <AdminOnly>
-                <StudentsPage />
-              </AdminOnly>
-            }
+            path="/tpo/dashboard"
+            element={<AdminOnly><AdminDashboard /></AdminOnly>}
           />
-
           <Route
-            path="/migration"
-            element={
-              <AdminOnly>
-                <MigrationPage />
-              </AdminOnly>
-            }
+            path="/tpo/ingest"
+            element={<AdminOnly><MigrationPage /></AdminOnly>}
           />
-
           <Route
-            path="/add-company"
-            element={
-              <AdminOnly>
-                <AddCompanyPage />
-              </AdminOnly>
-            }
+            path="/tpo/drives"
+            element={<AdminOnly><AddCompanyPage /></AdminOnly>}
           />
-
           <Route
-            path="/reports"
-            element={
-              <AdminOnly>
-                <ReportsPage />
-              </AdminOnly>
-            }
+            path="/tpo/students"
+            element={<AdminOnly><StudentsPage /></AdminOnly>}
           />
-
           <Route
-            path="/insights-lab"
-            element={
-              <AdminOnly>
-                <InsightsLabPage />
-              </AdminOnly>
-            }
+            path="/tpo/reports"
+            element={<AdminOnly><ReportsPage /></AdminOnly>}
           />
 
+          <Route path="/student" element={<Navigate to='/student/dashboard' replace />} />
           <Route
-            path="/campus-predictor"
-            element={
-              <AdminOnly>
-                <CampusPredictorPage />
-              </AdminOnly>
-            }
+            path="/student/dashboard"
+            element={<StudentOnly><StudentDashboard /></StudentOnly>}
           />
-
           <Route
-            path="/student-predictor"
-            element={
-              <AdminOnly>
-                <StudentPredictorPage />
-              </AdminOnly>
-            }
+            path="/student/opportunities"
+            element={<StudentOnly><StudentDashboard /></StudentOnly>}
           />
-
           <Route
-            path="/resume-studio"
-            element={
-              <AdminOnly>
-                <ResumeStudioPage />
-              </AdminOnly>
-            }
+            path="/student/resume"
+            element={<StudentOnly><ResumeStudioPage /></StudentOnly>}
           />
-
-          {/* Student Routes */}
-          <Route
-            path="/student"
-            element={
-              <AuthGuard>
-                <StudentDashboard />
-              </AuthGuard>
-            }
-          />
-
           <Route
             path="/student/profile"
-            element={
-              <AuthGuard>
-                <StudentProfile />
-              </AuthGuard>
-            }
+            element={<StudentOnly><StudentProfile /></StudentOnly>}
           />
-
           <Route
             path="/student/predictor"
-            element={
-              <AuthGuard>
-                <StudentPredictorPage />
-              </AuthGuard>
-            }
+            element={<Navigate to='/student/dashboard' replace />}
           />
-
           <Route
             path="/student/resume-studio"
-            element={
-              <AuthGuard>
-                <ResumeStudioPage />
-              </AuthGuard>
-            }
+            element={<Navigate to='/student/resume' replace />}
+          />
+          <Route
+            path="/student/mock-interview"
+            element={<StudentOnly><MockInterviewPage /></StudentOnly>}
           />
 
-          {/* Default Redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

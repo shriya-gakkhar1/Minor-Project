@@ -34,7 +34,7 @@ export default function AiReportModal({ open, onClose, summary }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'placeflow-report.txt';
+    link.download = 'placify-ai-report.txt';
     link.click();
     URL.revokeObjectURL(url);
   };

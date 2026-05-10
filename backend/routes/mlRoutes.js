@@ -5,11 +5,15 @@ const { extractResumeTextFromFile } = require('../services/resumeTextExtractor')
 const { scoreResumeAgainstJob } = require('../services/atsScorerEngine');
 const { optimizeResumePackage } = require('../services/ossResumeOptimizer');
 const { extractResumeSignalsFromText } = require('../services/resumeSignalExtractor');
+const { evaluateMockInterview, generateMockQuestions } = require('../services/mockInterviewEngine');
+const { predictPlacement } = require('../services/placementPredictionEngine');
+const { buildInstitutionalIntelligence } = require('../services/institutionalIntelligenceEngine');
+const { shouldAttemptPaddleOcr } = require('../services/paddleOcrBridge');
 
 const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 4 * 1024 * 1024 },
+  limits: { fileSize: 12 * 1024 * 1024 },
 });
 
 function clamp(value, min, max) {
@@ -23,9 +27,9 @@ function toNumber(value, fallback = 0) {
 
 function normalizeStatus(value) {
   const key = String(value || '').toLowerCase();
+  if (key.includes('unplaced') || key.includes('not placed') || key.includes('reject')) return 'Rejected';
   if (key.includes('select') || key.includes('place') || key.includes('offer') || key.includes('hire')) return 'Selected';
   if (key.includes('interview') || key.includes('shortlist')) return 'Interview';
-  if (key.includes('reject')) return 'Rejected';
   return 'Applied';
 }
 
@@ -112,6 +116,21 @@ router.post('/resume-parse', upload.single('resume'), async (req, res) => {
   });
 });
 
+router.get('/ocr-status', (req, res) => {
+  const disabled = ['0', 'false', 'no', 'off'].includes(String(process.env.ENABLE_PADDLE_OCR || '').toLowerCase());
+  res.json({
+    available: !disabled,
+    engine: 'PaddleOCR',
+    mode: disabled ? 'disabled' : 'auto-attempt',
+    supportedFiles: ['pdf with low embedded text', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'tiff'],
+    note: disabled
+      ? 'Set ENABLE_PADDLE_OCR=true or remove the false flag to allow OCR attempts.'
+      : 'OCR is attempted for images and low-text PDFs when PaddleOCR is installed in the configured Python environment.',
+    canAttemptImage: shouldAttemptPaddleOcr('resume.png'),
+    canAttemptPdf: shouldAttemptPaddleOcr('resume.pdf', { preferOcrForPdf: true }),
+  });
+});
+
 router.post('/ats-score', upload.single('resume'), async (req, res) => {
   const jobDescription = String(req.body?.jobDescription || '');
   const targetRole = String(req.body?.targetRole || '');
@@ -175,6 +194,47 @@ router.post('/recommend-skills', (req, res) => {
     recommended_skills: suggestions,
     source: 'node-ml-stub-v1',
   });
+});
+
+router.post('/placement-predict', (req, res) => {
+  return res.json(predictPlacement({
+    student: req.body?.student || req.body || {},
+    job: req.body?.job || {},
+  }));
+});
+
+router.post('/ops-intelligence', (req, res) => {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) {
+    return res.status(400).json({ message: 'rows array is required for operations intelligence.' });
+  }
+
+  return res.json(buildInstitutionalIntelligence({
+    rows,
+    criteria: req.body?.criteria || {},
+  }));
+});
+
+router.post('/mock-interview/questions', async (req, res) => {
+  const role = String(req.body?.role || 'Software Engineer Intern');
+  const profile = req.body?.profile || {};
+  const focusAreas = Array.isArray(req.body?.focusAreas) ? req.body.focusAreas : [];
+  const apiKey = String(req.body?.apiKey || '');
+  const jobDescription = String(req.body?.jobDescription || '');
+
+  const result = await generateMockQuestions({ role, profile, focusAreas, apiKey, jobDescription });
+  return res.json(result);
+});
+
+router.post('/mock-interview/evaluate', async (req, res) => {
+  const role = String(req.body?.role || 'Software Engineer Intern');
+  const profile = req.body?.profile || {};
+  const answers = Array.isArray(req.body?.answers) ? req.body.answers : [];
+  const apiKey = String(req.body?.apiKey || '');
+  const jobDescription = String(req.body?.jobDescription || '');
+
+  const result = await evaluateMockInterview({ role, profile, answers, apiKey, jobDescription });
+  return res.json(result);
 });
 
 module.exports = router;

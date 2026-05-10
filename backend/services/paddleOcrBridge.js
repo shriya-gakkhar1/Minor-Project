@@ -21,6 +21,11 @@ function shouldAttemptPaddleOcr(filename = '', options = {}) {
   return false;
 }
 
+function isOcrExplicitlyDisabled() {
+  const flag = String(process.env.ENABLE_PADDLE_OCR || '').toLowerCase();
+  return flag === '0' || flag === 'false' || flag === 'no' || flag === 'off';
+}
+
 function runPythonScript(command, args, timeoutMs = 45000) {
   return new Promise((resolve) => {
     const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -55,14 +60,11 @@ function runPythonScript(command, args, timeoutMs = 45000) {
 }
 
 async function extractTextWithPaddleOcr(file, options = {}) {
-  const enableFlag = String(process.env.ENABLE_PADDLE_OCR || '').toLowerCase();
-  const enabled = enableFlag === '1' || enableFlag === 'true' || enableFlag === 'yes';
-
-  if (!enabled) {
+  if (isOcrExplicitlyDisabled()) {
     return {
       ok: false,
       skipped: true,
-      error: 'PaddleOCR is disabled. Set ENABLE_PADDLE_OCR=true to enable OCR pipeline.',
+      error: 'PaddleOCR is disabled by ENABLE_PADDLE_OCR=false.',
     };
   }
 

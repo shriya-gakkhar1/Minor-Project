@@ -14,7 +14,7 @@ export default function ReportGenerator({ data }) {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
 
-  const apiKey = getStoredValue('placeiq-gemini-key');
+  const apiKey = getStoredValue('placify-gemini-key') || getStoredValue('placeiq-gemini-key');
 
   const handleGenerate = async () => {
     if (!apiKey) {
@@ -39,7 +39,7 @@ export default function ReportGenerator({ data }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `PlaceIQ_Report_${new Date().toISOString().split('T')[0]}.pptx`;
+      a.download = `Placify_AI_Report_${new Date().toISOString().split('T')[0]}.pptx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

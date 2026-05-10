@@ -36,7 +36,7 @@ async function extractResumeTextFromFile(file, options = {}) {
 
   const extension = getFileExtension(file.originalname);
   try {
-    if (extension === 'txt') {
+    if (extension === 'txt' || extension === 'md') {
       return { ok: true, text: file.buffer.toString('utf8'), source: 'txt-parser' };
     }
 
@@ -53,6 +53,13 @@ async function extractResumeTextFromFile(file, options = {}) {
             text: ocr.text,
             source: 'paddle-ocr',
             confidence: ocr.confidence,
+          };
+        }
+
+        if (tokenCount === 0) {
+          return {
+            ok: false,
+            error: `This PDF appears scanned or image-only. OCR was attempted but did not return text: ${ocr.error}`,
           };
         }
       }
@@ -82,7 +89,7 @@ async function extractResumeTextFromFile(file, options = {}) {
       };
     }
 
-    return { ok: false, error: 'Unsupported file type. Upload PDF, DOCX, DOC, TXT, PNG, JPG, JPEG, WEBP, BMP, or TIFF.' };
+    return { ok: false, error: 'Unsupported file type. Upload PDF, DOCX, DOC, TXT, MD, PNG, JPG, JPEG, WEBP, BMP, or TIFF.' };
   } catch (error) {
     return { ok: false, error: `Could not read resume file: ${error.message}` };
   }

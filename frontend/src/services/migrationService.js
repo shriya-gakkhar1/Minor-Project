@@ -1,5 +1,8 @@
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { loadDb, makeId, saveDb } from './dbService';
+
+const BACKEND_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 const STATUS_ALIASES = {
   applied: 'Applied',
@@ -10,6 +13,12 @@ const STATUS_ALIASES = {
   hired: 'Selected',
   rejected: 'Rejected',
   notselected: 'Rejected',
+  unplaced: 'Applied',
+  notplaced: 'Applied',
+  placed: 'Selected',
+  offered: 'Selected',
+  offer: 'Selected',
+  eligible: 'Shortlisted',
 };
 
 function normalizeText(value) {
@@ -50,7 +59,10 @@ function getCellByAliases(row, aliases, fallback = '') {
 
   for (const key of keys) {
     const normalized = normalizeKey(key);
-    const matched = aliases.some((alias) => normalized.includes(alias));
+    const matched = aliases.some((alias) => {
+      const aliasKey = normalizeKey(alias);
+      return normalized === aliasKey || normalized.includes(aliasKey) || (normalized.length >= 7 && aliasKey.includes(normalized));
+    });
     if (!matched) continue;
 
     const value = normalizeText(row[key]);
@@ -62,7 +74,22 @@ function getCellByAliases(row, aliases, fallback = '') {
 
 function normalizeStatus(rawStatus) {
   const normalized = normalizeKey(rawStatus);
+  if (normalized.includes('unplaced') || normalized.includes('notplaced')) return 'Applied';
+  if (normalized.includes('selected') || normalized.includes('placed') || normalized.includes('offered')) return 'Selected';
+  if (normalized.includes('shortlist') || normalized.includes('eligible')) return 'Shortlisted';
+  if (normalized.includes('interview')) return 'Interview';
+  if (normalized.includes('reject')) return 'Rejected';
   return STATUS_ALIASES[normalized] || 'Applied';
+}
+
+function toSafeNumber(value, fallback = 0) {
+  const parsed = Number(String(value ?? '').replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function boolish(value) {
+  const key = normalizeText(value).toLowerCase();
+  return ['yes', 'true', '1', 'uploaded', 'done', 'submitted', 'selected', 'placed'].some((item) => key.includes(item));
 }
 
 function inferNameFromRow(row) {
@@ -83,10 +110,56 @@ export function parseCsvContent(file, onComplete) {
   });
 }
 
+export async function parseTabularFile(file) {
+  const extension = String(file?.name || '').split('.').pop()?.toLowerCase();
+  if (extension === 'csv') {
+    return new Promise((resolve, reject) => {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: ({ data, errors }) => {
+          if (errors?.length) reject(new Error(errors[0].message));
+          else resolve(data || []);
+        },
+        error: reject,
+      });
+    });
+  }
+
+  if (extension === 'xlsx' || extension === 'xls') {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer);
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  }
+
+  throw new Error('Upload a CSV, XLSX, or XLS file.');
+}
+
 export async function importRowsFromGoogleSheetUrl(url) {
   const { spreadsheetId, gid } = extractSheetMeta(url);
   if (!spreadsheetId) {
     throw new Error('Invalid Google Sheets URL. Please paste a valid sheet link.');
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_BASE}/api/ingest/google-sheet`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message || 'Backend could not read this sheet.');
+    if (!Array.isArray(payload.rows) || !payload.rows.length) throw new Error('No rows found in this sheet tab.');
+    return {
+      sourceName: payload.sourceName || `Google Sheet (${spreadsheetId.slice(0, 6)}...)`,
+      rows: payload.rows,
+      backendPreview: payload,
+    };
+  } catch (backendError) {
+    if (!String(backendError?.message || '').includes('Failed to fetch')) {
+      throw backendError;
+    }
   }
 
   const csvEndpoints = [
@@ -136,12 +209,26 @@ export function normalizeMigrationRows(rows) {
       getCellByAliases(row, ['companyname', 'company', 'employer', 'organization']) || inferCompanyFromRow(row);
 
     const role = getCellByAliases(row, ['role', 'jobrole', 'position', 'profile'], 'General Role');
-    const status = normalizeStatus(getCellByAliases(row, ['status', 'stage', 'result'], 'Applied'));
-    const cgpa = Number(getCellByAliases(row, ['cgpa', 'gpa', 'grade', 'score'], 0));
-    const packageValue = Number(getCellByAliases(row, ['package', 'ctc', 'salary', 'stipend'], 0));
-    const eligibility = Number(getCellByAliases(row, ['eligibility', 'mincgpa', 'cgpaeligibility'], 0));
-    const branch = getCellByAliases(row, ['branch', 'department', 'stream'], 'Unknown');
+    const status = normalizeStatus(getCellByAliases(row, ['status', 'stage', 'result', 'placed', 'placementstatus'], 'Applied'));
+    const shortlistedStatus = normalizeStatus(getCellByAliases(row, ['shortlisted', 'eligible', 'screened'], status));
+    const cgpa = toSafeNumber(getCellByAliases(row, ['cgpa', 'gpa', 'sgpa', 'grade', 'score', 'aggregate'], 0));
+    const packageValue = toSafeNumber(getCellByAliases(row, ['package', 'package lpa', 'package_lpa', 'ctc', 'salary', 'stipend'], 0));
+    const eligibility = toSafeNumber(getCellByAliases(row, ['eligibility', 'mincgpa', 'minimumcgpa', 'cgpaeligibility'], 0));
+    const branch = getCellByAliases(row, ['branch', 'department', 'dept', 'stream'], 'Unknown');
+    const attendance = toSafeNumber(getCellByAliases(row, ['attendance', 'attendancepercent', 'attendence', 'att'], 75));
+    const activeBacklogs = toSafeNumber(getCellByAliases(row, ['activebacklogs', 'currentback', 'currentbacks', 'backlogs', 'backs', 'kt'], 0));
+    const aptitudeScore = toSafeNumber(getCellByAliases(row, ['aptitudescore', 'aptitude', 'testscore', 'assessment'], 55));
+    const communicationScore = toSafeNumber(getCellByAliases(row, ['communicationscore', 'communication', 'spoken', 'softskills'], 55));
     const deadline = getCellByAliases(row, ['deadline', 'lastdate', 'date', 'applyby'], '');
+    const requiredSkills = getCellByAliases(row, ['requiredskills', 'skillsrequired', 'skills'], '');
+    const preferredSkills = getCellByAliases(row, ['preferredskills', 'goodtohave'], '');
+    const preferredCertifications = getCellByAliases(row, ['preferredcertifications', 'certifications'], '');
+    const preferredTechnologies = getCellByAliases(row, ['preferredtechnologies', 'technologies', 'tools'], '');
+    const internshipPreference = getCellByAliases(row, ['internshippreference', 'internshiprequired'], 'Preferred');
+    const projects = toSafeNumber(getCellByAliases(row, ['projects', 'projectcount', 'noofprojects'], 0));
+    const internships = toSafeNumber(getCellByAliases(row, ['internships', 'internshipcount'], 0));
+    const resumeUploadedRaw = getCellByAliases(row, ['resumeuploaded', 'resume', 'cvuploaded', 'cv'], '');
+    const resumeScore = toSafeNumber(getCellByAliases(row, ['resumescore', 'atsscore', 'ats'], boolish(resumeUploadedRaw) ? 68 : 0));
 
     let student = null;
     if (name || email) {
@@ -155,6 +242,16 @@ export function normalizeMigrationRows(rows) {
           email: studentEmail,
           cgpa: Number.isFinite(cgpa) ? cgpa : 0,
           branch,
+          projects: Number.isFinite(projects) ? projects : 0,
+          internships: Number.isFinite(internships) ? internships : 0,
+          resumeScore: Number.isFinite(resumeScore) ? resumeScore : 0,
+          atsScore: Number.isFinite(resumeScore) ? resumeScore : 0,
+          attendance,
+          activeBacklogs,
+          aptitudeScore,
+          communicationScore,
+          resumeUploaded: boolish(resumeUploadedRaw) || resumeScore > 0,
+          shortlistedStatus,
         });
       }
       student = studentMap.get(studentKey);
@@ -172,6 +269,12 @@ export function normalizeMigrationRows(rows) {
           eligibility: Number.isFinite(eligibility) ? eligibility : 0,
           deadline,
           branch: branch || 'All',
+          requiredSkills,
+          preferredSkills,
+          preferredCertifications,
+          preferredTechnologies,
+          internshipPreference,
+          status: 'Open',
         });
       }
       company = companyMap.get(companyKey);

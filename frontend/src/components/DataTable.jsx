@@ -2,27 +2,27 @@ import { cn } from '../lib/utils';
 
 export default function DataTable({ columns, rows, emptyText = 'No rows found', className }) {
   return (
-    <div className={cn('overflow-hidden rounded-lg border border-slate-200/90 bg-white/90 shadow-sm', className)}>
+    <div className={cn('overflow-hidden rounded-[24px] border border-[var(--pf-border)] bg-[var(--pf-surface)] shadow-[var(--pf-shadow)]', className)}>
       <div className='overflow-x-auto'>
-        <table className='min-w-full divide-y divide-slate-200 text-sm'>
-          <thead className='bg-slate-50/90'>
+        <table className='min-w-full divide-y divide-slate-200/70 text-sm dark:divide-white/10'>
+          <thead className='bg-white/55 dark:bg-white/[0.035]'>
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className='px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500'
+                  className='px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--pf-muted)]'
                 >
                   {column.label}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className='divide-y divide-slate-100'>
+          <tbody className='divide-y divide-slate-200/70 dark:divide-white/10'>
             {rows.length > 0 ? (
               rows.map((row) => (
-                <tr key={row.id} className='transition-colors hover:bg-teal-50/40'>
+                <tr key={row.id} className='transition-colors hover:bg-sky-50/80 dark:hover:bg-teal-300/[0.055]'>
                   {columns.map((column) => (
-                    <td key={`${row.id}_${column.key}`} className='px-4 py-3 text-slate-700'>
+                    <td key={`${row.id}_${column.key}`} className='px-4 py-3 text-[var(--pf-text)]'>
                       {column.render ? column.render(row[column.key], row) : row[column.key]}
                     </td>
                   ))}
@@ -30,7 +30,7 @@ export default function DataTable({ columns, rows, emptyText = 'No rows found', 
               ))
             ) : (
               <tr>
-                <td className='px-4 py-8 text-center text-sm text-slate-500' colSpan={columns.length}>
+                <td className='px-4 py-8 text-center text-sm text-[var(--pf-muted)]' colSpan={columns.length}>
                   {emptyText}
                 </td>
               </tr>

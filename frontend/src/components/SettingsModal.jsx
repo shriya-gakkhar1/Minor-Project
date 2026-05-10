@@ -17,12 +17,12 @@ function writeStorage(key, value) {
 }
 
 export default function SettingsModal({ onClose, onSaved }) {
-  const [sheetUrl, setSheetUrl] = useState(readStorage('placeiq-sheet-url'));
-  const [apiKey, setApiKey] = useState(readStorage('placeiq-gemini-key'));
+  const [sheetUrl, setSheetUrl] = useState(readStorage('placify-sheet-url') || readStorage('placeiq-sheet-url'));
+  const [apiKey, setApiKey] = useState(readStorage('placify-gemini-key') || readStorage('placeiq-gemini-key'));
 
   const handleSave = () => {
-    writeStorage('placeiq-sheet-url', sheetUrl.trim());
-    writeStorage('placeiq-gemini-key', apiKey.trim());
+    writeStorage('placify-sheet-url', sheetUrl.trim());
+    writeStorage('placify-gemini-key', apiKey.trim());
     onSaved();
   };
 
@@ -93,7 +93,7 @@ export default function SettingsModal({ onClose, onSaved }) {
                   <div>
                     <h3 className="text-[14px] font-semibold text-white flex items-center gap-2">
                       Gemini API Integration
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-[var(--color-accent-2)] bg-opacity-20 text-[var(--color-accent-2)]">gemini-3.1-pro</span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-[var(--color-accent-2)] bg-opacity-20 text-[var(--color-accent-2)]">gemini</span>
                     </h3>
                     <p className="text-[12px] text-[var(--color-text-muted)]">Used for automated report generation</p>
                   </div>

@@ -16,10 +16,10 @@ import { usePlacementStore } from '../store/usePlacementStore';
 const COLORS = ['#0f766e', '#0f5c8e', '#14b8a6', '#22c55e', '#f59e0b', '#e11d48', '#4f46e5', '#8b5cf6'];
 
 const CHART_TYPES = [
-  { id: 'bar', label: 'Bar Chart', icon: '📊' },
-  { id: 'line', label: 'Line Chart', icon: '📈' },
-  { id: 'pie', label: 'Pie Chart', icon: '🥧' },
-  { id: 'area', label: 'Area Chart', icon: '📉' },
+  { id: 'bar', label: 'Bar Chart' },
+  { id: 'line', label: 'Line Chart' },
+  { id: 'pie', label: 'Pie Chart' },
+  { id: 'area', label: 'Area Chart' },
 ];
 
 function normalizeStatus(value) {
@@ -209,6 +209,55 @@ export default function ReportsPage() {
     { key: 'companyName', label: 'Company' },
     { key: 'statusDisplay', label: 'Status' },
   ];
+
+  const downloadTextFile = (filename, content, type = 'text/plain;charset=utf-8') => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['Student Name', 'Branch', 'CGPA', 'Company', 'Status'];
+    const rows = tableData.map((row) => [row.name, row.branch, row.cgpa, row.companyName, row.statusDisplay]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    downloadTextFile(`placify-ai-report-${new Date().toISOString().split('T')[0]}.csv`, csv, 'text/csv;charset=utf-8');
+  };
+
+  const handleExportTXT = () => {
+    const selected = tableData.filter((row) => normalizeStatus(row.status) === 'selected').length;
+    const lines = [
+      'Placify AI Placement Summary',
+      `Generated: ${new Date().toLocaleString()}`,
+      `Total Records: ${tableData.length}`,
+      `Selected: ${selected}`,
+      `Selection Rate: ${tableData.length ? ((selected / tableData.length) * 100).toFixed(1) : '0.0'}%`,
+      '',
+      'Branch-wise Stats:',
+      ...branchOptions
+        .filter((branch) => branch !== 'All')
+        .map((branch) => {
+          const branchRows = tableData.filter((row) => row.branch === branch);
+          const branchSelected = branchRows.filter((row) => normalizeStatus(row.status) === 'selected').length;
+          return `${branch}: ${branchSelected}/${branchRows.length} selected`;
+        }),
+      '',
+      'Company-wise Stats:',
+      ...companyOptions
+        .filter((company) => company !== 'All')
+        .map((company) => {
+          const companyRows = tableData.filter((row) => row.companyName === company);
+          const companySelected = companyRows.filter((row) => normalizeStatus(row.status) === 'selected').length;
+          return `${company}: ${companySelected}/${companyRows.length} selected`;
+        }),
+    ];
+    downloadTextFile(`placify-ai-summary-${new Date().toISOString().split('T')[0]}.txt`, lines.join('\n'));
+  };
 
   // PDF Export
   const handleExportPDF = async () => {
@@ -513,7 +562,7 @@ export default function ReportsPage() {
                   : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
               }`}
             >
-              {type.icon} {type.label}
+              {type.label}
             </button>
           ))}
         </div>
@@ -523,6 +572,12 @@ export default function ReportsPage() {
           disabled={isExporting || filteredData.length === 0}
         >
           {isExporting ? 'Exporting...' : 'Download Report (PDF)'}
+        </Button>
+        <Button variant='secondary' onClick={handleExportCSV} disabled={tableData.length === 0}>
+          Download CSV
+        </Button>
+        <Button variant='secondary' onClick={handleExportTXT} disabled={tableData.length === 0}>
+          Download TXT
         </Button>
       </div>
 

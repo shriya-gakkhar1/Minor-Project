@@ -1,17 +1,54 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Sora:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --pf-bg: #f3f7fb;
-  --pf-card: #ffffff;
+  --pf-bg: #eef8ff;
+  --pf-bg-2: #f8fbff;
+  --pf-surface: rgba(255, 255, 255, 0.78);
+  --pf-surface-strong: rgba(255, 255, 255, 0.92);
+  --pf-surface-soft: rgba(241, 247, 252, 0.78);
   --pf-text: #0f172a;
-  --pf-muted: #5f7288;
-  --pf-border: #d9e3ee;
-  --pf-accent: #0f766e;
-  --pf-accent-soft: #d9f4ee;
-  --pf-secondary: #0f5c8e;
-  --pf-highlight: #f59e0b;
-  --pf-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+  --pf-muted: #64748b;
+  --pf-border: rgba(15, 23, 42, 0.09);
+  --pf-border-strong: rgba(14, 165, 233, 0.22);
+  --pf-accent: #0ea5e9;
+  --pf-accent-soft: rgba(14, 165, 233, 0.1);
+  --pf-secondary: #14b8a6;
+  --pf-highlight: #8b5cf6;
+  --pf-danger: #e11d48;
+  --pf-success: #059669;
+  --pf-warning: #d97706;
+  --pf-shadow: 0 24px 70px rgba(15, 23, 42, 0.1);
+  --color-surface: var(--pf-surface);
+  --color-border: var(--pf-border);
+  --color-text: var(--pf-text);
+  --color-text-muted: var(--pf-muted);
+  --color-success: var(--pf-success);
+  --color-success-surface: rgba(52, 211, 153, 0.12);
+  --color-danger: var(--pf-danger);
+  --color-danger-surface: rgba(251, 113, 133, 0.12);
+}
+
+.dark {
+  --pf-bg: #07111f;
+  --pf-bg-2: #0b1526;
+  --pf-surface: rgba(12, 22, 39, 0.78);
+  --pf-surface-strong: rgba(12, 22, 39, 0.94);
+  --pf-surface-soft: rgba(18, 31, 53, 0.68);
+  --pf-text: #f8fafc;
+  --pf-muted: #9fb0c8;
+  --pf-border: rgba(148, 163, 184, 0.16);
+  --pf-border-strong: rgba(125, 211, 252, 0.24);
+  --pf-accent: #38bdf8;
+  --pf-accent-soft: rgba(56, 189, 248, 0.12);
+  --pf-secondary: #5eead4;
+  --pf-highlight: #a78bfa;
+  --pf-danger: #fb7185;
+  --pf-success: #34d399;
+  --pf-warning: #fbbf24;
+  --pf-shadow: 0 22px 80px rgba(0, 0, 0, 0.32);
 }
 
 * {
@@ -29,11 +66,21 @@ body {
   font-family: 'Sora', system-ui, sans-serif;
   color: var(--pf-text);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(243, 247, 251, 0.9)),
-    linear-gradient(135deg, #eff8f5 0%, #f4f8fd 44%, #fff7e8 100%),
+    radial-gradient(circle at 12% -10%, rgba(125, 211, 252, 0.38), transparent 34rem),
+    radial-gradient(circle at 88% 4%, rgba(167, 139, 250, 0.22), transparent 30rem),
+    radial-gradient(circle at 55% 110%, rgba(45, 212, 191, 0.18), transparent 34rem),
+    linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(239, 248, 255, 0.96)),
     var(--pf-bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at 18% -10%, rgba(20, 184, 166, 0.15), transparent 34rem),
+    radial-gradient(circle at 82% 2%, rgba(96, 165, 250, 0.13), transparent 30rem),
+    linear-gradient(180deg, rgba(3, 7, 18, 0.98), rgba(7, 17, 31, 0.98)),
+    var(--pf-bg);
 }
 
 h1,
@@ -46,7 +93,7 @@ h5 {
 }
 
 ::selection {
-  background: #bcefe4;
+  background: rgba(94, 234, 212, 0.25);
 }
 
 button,
@@ -107,6 +154,23 @@ textarea {
 .pf-shell-bg {
   position: relative;
   isolation: isolate;
+  background:
+    linear-gradient(90deg, rgba(14, 165, 233, 0.08), transparent 32%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), transparent 28rem),
+    var(--pf-bg);
+}
+
+.pf-shell-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent 74%);
 }
 
 .pf-float {
@@ -115,6 +179,95 @@ textarea {
 
 main > div {
   animation: rise-in 260ms ease-out;
+}
+
+.dark .pf-shell-bg table,
+.dark .pf-shell-bg select,
+.dark .pf-shell-bg input,
+.dark .pf-shell-bg textarea {
+  color-scheme: dark;
+}
+
+.theme-transition,
+.theme-transition * {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.pf-shell-bg .recharts-cartesian-grid line {
+  stroke: rgba(148, 163, 184, 0.16);
+}
+
+.pf-shell-bg .recharts-text,
+.pf-shell-bg .recharts-label {
+  fill: #9fb0c8;
+}
+
+.pf-shell-bg .recharts-tooltip-wrapper {
+  outline: none;
+}
+
+@keyframes manga-sweep {
+  0% {
+    transform: translateX(-18%) skewX(-12deg);
+    opacity: 0.18;
+  }
+  50% {
+    opacity: 0.38;
+  }
+  100% {
+    transform: translateX(18%) skewX(-12deg);
+    opacity: 0.18;
+  }
+}
+
+@keyframes manga-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(217, 70, 239, 0);
+  }
+  50% {
+    transform: scale(1.045);
+    box-shadow: 0 0 44px rgba(217, 70, 239, 0.25);
+  }
+}
+
+.manga-speed-lines {
+  pointer-events: none;
+  position: absolute;
+  inset: -20%;
+  background:
+    repeating-linear-gradient(
+      112deg,
+      transparent 0,
+      transparent 18px,
+      rgba(217, 70, 239, 0.08) 19px,
+      rgba(94, 234, 212, 0.08) 21px,
+      transparent 24px
+    );
+  animation: manga-sweep 1.4s linear infinite;
+}
+
+.manga-card {
+  isolation: isolate;
+}
+
+.manga-card::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  z-index: -1;
+  border-radius: 1.5rem;
+  background: radial-gradient(circle, rgba(217, 70, 239, 0.2), transparent 64%);
+  filter: blur(18px);
+}
+
+.manga-aura {
+  animation: manga-pulse 1.1s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

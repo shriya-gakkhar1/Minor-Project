@@ -4,11 +4,11 @@ import { signUpStudent, signInWithEmail, signOut as supabaseSignOut, isSupabaseC
 // Demo credentials for login
 const DEMO_CREDENTIALS = {
   admin: {
-    email: 'admin@placeflow.edu',
+    email: 'admin@placify.edu',
     password: 'admin123',
   },
   student: {
-    email: 'student@placeflow.edu',
+    email: 'student@placify.edu',
     password: 'student123',
   },
 };
@@ -186,7 +186,7 @@ export function loginAs(role) {
   const nextAuth =
     role === 'student'
       ? { role: 'student', userId: 'stu_01', name: 'Aarav Sharma', email: 'aarav@college.edu' }
-      : { role: 'admin', userId: 'admin_01', name: 'TPO Admin', email: 'tpo@placeflow.edu' };
+      : { role: 'admin', userId: 'admin_01', name: 'TPO Admin', email: 'tpo@placify.edu' };
 
   return saveDb({ ...db, auth: nextAuth }).auth;
 }

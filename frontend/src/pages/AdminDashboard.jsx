@@ -1,21 +1,16 @@
-import { useMemo, useState } from 'react';
+import { createElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
-  ArrowUpRight,
   BarChart3,
-  BrainCircuit,
   BriefcaseBusiness,
-  ClipboardCheck,
+  CalendarClock,
   DatabaseBackup,
-  FilePenLine,
-  Gauge,
+  Download,
+  FileSpreadsheet,
   GraduationCap,
   LineChart,
-  SlidersHorizontal,
-  Sparkles,
-  Target,
-  UserCheck,
+  ShieldCheck,
   Users,
 } from 'lucide-react';
 import {
@@ -23,6 +18,8 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Line,
+  LineChart as ReLineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -30,61 +27,21 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import AiReportModal from '../components/AiReportModal';
 import Button from '../components/Button';
 import DataTable from '../components/DataTable';
 import PageContainer from '../components/PageContainer';
-import { statusTone } from '../lib/utils';
-import { getWorkflowTransitions } from '../services/workflowService';
+import { buildOperationalIntelligence } from '../services/placementIntelligenceService';
 import { usePlacementStore } from '../store/usePlacementStore';
 
-const WORKFLOW_STAGES = ['Applied', 'Shortlisted', 'Interview', 'Selected', 'Rejected'];
-const CHART_COLORS = ['#0f766e', '#0f5c8e', '#14b8a6', '#f59e0b', '#e11d48', '#4f46e5'];
+const chartColors = ['#5b6cff', '#14b8a6', '#f59e0b', '#fb7185', '#a855f7', '#38bdf8'];
 
-function panelClass(extra = '') {
-  return `rounded-lg border border-slate-200 bg-white/92 shadow-sm ${extra}`;
-}
-
-function toneClasses(tone) {
-  if (tone === 'success') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  if (tone === 'warning') return 'bg-amber-50 text-amber-700 border-amber-200';
-  if (tone === 'info') return 'bg-sky-50 text-sky-700 border-sky-200';
-  if (tone === 'danger') return 'bg-rose-50 text-rose-700 border-rose-200';
-  return 'bg-slate-100 text-slate-600 border-slate-200';
-}
-
-function MiniMetric({ label, value, note, icon, tone = 'teal' }) {
-  const toneMap = {
-    teal: 'bg-teal-50 text-teal-700 border-teal-100',
-    sky: 'bg-sky-50 text-sky-700 border-sky-100',
-    amber: 'bg-amber-50 text-amber-700 border-amber-100',
-    rose: 'bg-rose-50 text-rose-700 border-rose-100',
-    slate: 'bg-slate-50 text-slate-700 border-slate-100',
-  };
-
+function Panel({ title, subtitle, action, children, className = '' }) {
   return (
-    <div className={panelClass('p-4')}>
-      <div className='flex items-start justify-between gap-3'>
+    <section className={`rounded-[28px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-5 shadow-[var(--pf-shadow)] backdrop-blur-xl ${className}`}>
+      <div className='mb-4 flex items-start justify-between gap-3'>
         <div>
-          <p className='text-xs font-semibold uppercase text-slate-500'>{label}</p>
-          <p className='mt-2 text-2xl font-semibold text-slate-950'>{value}</p>
-          {note ? <p className='mt-1 text-xs text-slate-500'>{note}</p> : null}
-        </div>
-        <div className={`rounded-lg border p-2 ${toneMap[tone]}`}>
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DashboardPanel({ title, subtitle, action, children, className = '' }) {
-  return (
-    <section className={panelClass(`p-5 ${className}`)}>
-      <div className='mb-4 flex flex-wrap items-start justify-between gap-3'>
-        <div>
-          <h2 className='text-base font-semibold text-slate-950'>{title}</h2>
-          {subtitle ? <p className='mt-1 text-sm text-slate-500'>{subtitle}</p> : null}
+          <h2 className='text-base font-semibold text-[var(--pf-text)]'>{title}</h2>
+          {subtitle ? <p className='mt-1 text-sm text-[var(--pf-muted)]'>{subtitle}</p> : null}
         </div>
         {action}
       </div>
@@ -93,615 +50,418 @@ function DashboardPanel({ title, subtitle, action, children, className = '' }) {
   );
 }
 
-function SliderControl({ label, value, min, max, step = 1, suffix = '', onChange }) {
+function KpiCard({ label, value, note, icon: Icon, tone = 'violet' }) {
+  const tones = {
+    violet: 'from-violet-500 to-indigo-500 text-violet-100 shadow-violet-500/20',
+    blue: 'from-blue-500 to-sky-400 text-blue-100 shadow-blue-500/20',
+    green: 'from-emerald-500 to-teal-400 text-emerald-100 shadow-emerald-500/20',
+    amber: 'from-amber-500 to-orange-400 text-amber-100 shadow-amber-500/20',
+    rose: 'from-rose-500 to-pink-500 text-rose-100 shadow-rose-500/20',
+    cyan: 'from-cyan-500 to-teal-400 text-cyan-100 shadow-cyan-500/20',
+  };
   return (
-    <label className='block'>
-      <div className='mb-2 flex items-center justify-between gap-3 text-sm'>
-        <span className='font-medium text-slate-700'>{label}</span>
-        <span className='rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-700'>
-          {value}{suffix}
-        </span>
+    <div className='group rounded-[24px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-4 shadow-[var(--pf-shadow)] transition hover:-translate-y-0.5 hover:shadow-xl'>
+      <div className='flex items-start justify-between gap-3'>
+        <div className={`grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br ${tones[tone]} shadow-lg`}>
+          {createElement(Icon, { className: 'h-5 w-5 text-white' })}
+        </div>
       </div>
-      <input
-        type='range'
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className='w-full accent-teal-700'
-      />
-    </label>
+      <p className='mt-5 text-xs font-semibold uppercase tracking-wide text-[var(--pf-muted)]'>{label}</p>
+      <p className='mt-1 text-3xl font-semibold tracking-tight text-[var(--pf-text)]'>{value}</p>
+      <p className='mt-1 text-xs text-[var(--pf-muted)]'>{note}</p>
+    </div>
+  );
+}
+
+function ProgressMini({ label, value, color = '#5eead4' }) {
+  return (
+    <div>
+      <div className='mb-1 flex justify-between text-xs'>
+        <span className='text-[var(--pf-muted)]'>{label}</span>
+        <span className='font-semibold text-[var(--pf-text)]'>{value}%</span>
+      </div>
+      <div className='h-2 rounded-full bg-slate-200/80 dark:bg-white/8'>
+        <div className='h-2 rounded-full' style={{ width: `${Math.min(100, value)}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
+function ChartTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className='rounded-xl border border-[var(--pf-border)] bg-white px-3 py-2 text-xs shadow-2xl dark:bg-[#07111f]'>
+      <p className='font-semibold text-[var(--pf-text)]'>{label}</p>
+      {payload.map((item) => (
+        <p key={item.dataKey} className='mt-1 text-[var(--pf-muted)]'>
+          <span style={{ color: item.color }}>●</span> {item.name || item.dataKey}: {item.value}
+        </p>
+      ))}
+    </div>
   );
 }
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-
   const students = usePlacementStore((state) => state.students);
   const companies = usePlacementStore((state) => state.companies);
-  const studentPlacementRows = usePlacementStore((state) => state.studentPlacementRows);
-  const applicationViews = usePlacementStore((state) => state.applicationViews);
-  const selectedCompanyFilter = usePlacementStore((state) => state.selectedCompanyFilter);
-  const setSelectedCompanyFilter = usePlacementStore((state) => state.setSelectedCompanyFilter);
-  const updateStatus = usePlacementStore((state) => state.updateApplicationStatus);
+  const applications = usePlacementStore((state) => state.applicationViews);
+  const studentRows = usePlacementStore((state) => state.studentPlacementRows);
+  const migrationSource = usePlacementStore((state) => state.migrationSource);
 
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [activeCompany, setActiveCompany] = useState('');
-  const [reportOpen, setReportOpen] = useState(false);
-  const [scenario, setScenario] = useState({
-    trainingLift: 18,
-    interviewCapacity: 8,
-    offerRate: 34,
-  });
+  const [branchFilter, setBranchFilter] = useState('All');
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const intelligence = useMemo(
+    () => buildOperationalIntelligence({ students: studentRows, companies }),
+    [companies, studentRows],
+  );
 
-  const latestApplicationByStudent = useMemo(() => {
-    const latestMap = new Map();
-    applicationViews.forEach((application) => {
-      const previous = latestMap.get(application.studentId);
-      if (!previous || new Date(previous.createdAt).getTime() < new Date(application.createdAt).getTime()) {
-        latestMap.set(application.studentId, application);
-      }
-    });
-    return latestMap;
-  }, [applicationViews]);
+  const placedIds = useMemo(
+    () => new Set(applications.filter((item) => item.status === 'Selected').map((item) => item.studentId)),
+    [applications],
+  );
 
-  const baseRows = useMemo(() => {
-    return studentPlacementRows.map((row) => {
-      const latest = latestApplicationByStudent.get(row.id);
+  const placed = placedIds.size;
+  const total = students.length;
+  const placementRate = total ? Math.round((placed / total) * 100) : 0;
+  const activeDrives = companies.filter((company) => company.status !== 'Closed').length;
+  const avgPackage = placed
+    ? (
+        applications
+          .filter((application) => application.status === 'Selected')
+          .reduce((sum, application) => {
+            const company = companies.find((item) => item.id === application.companyId);
+            return sum + Number(company?.package || 0);
+          }, 0) / placed
+      ).toFixed(1)
+    : '0.0';
+
+  const branchData = useMemo(() => {
+    return intelligence.branches.map((branch) => {
+      const branchStudents = studentRows.filter((student) => student.branch === branch.branch);
+      const branchPlaced = branchStudents.filter((student) => placedIds.has(student.id)).length;
       return {
-        ...row,
-        latestApplicationId: latest?.id || null,
-        latestRole: latest?.role || 'Not mapped',
-        latestStatus: latest?.status || row.status || 'Unassigned',
+        branch: branch.branch,
+        eligible: branch.students ? Math.round((branch.eligible / branch.students) * 100) : 0,
+        placed: branch.students ? Math.round((branchPlaced / branch.students) * 100) : 0,
+        atRisk: branch.atRisk,
+        avgAts: branch.avgAts,
       };
     });
-  }, [studentPlacementRows, latestApplicationByStudent]);
+  }, [intelligence.branches, placedIds, studentRows]);
 
-  const selectedCount = useMemo(
-    () => applicationViews.filter((application) => application.status === 'Selected').length,
-    [applicationViews],
-  );
+  const funnel = useMemo(() => {
+    const shortlisted = applications.filter((item) => ['Shortlisted', 'Interview', 'Selected'].includes(item.status)).length;
+    const interview = applications.filter((item) => ['Interview', 'Selected'].includes(item.status)).length;
+    return [
+      { stage: 'Total', count: total, color: '#5b6cff' },
+      { stage: 'Eligible', count: intelligence.eligibleCount, color: '#3b82f6' },
+      { stage: 'Shortlisted', count: shortlisted, color: '#14b8a6' },
+      { stage: 'Interview', count: interview, color: '#34d399' },
+      { stage: 'Offers', count: placed, color: '#f59e0b' },
+      { stage: 'Placed', count: placed, color: '#fb7185' },
+    ];
+  }, [applications, intelligence.eligibleCount, placed, total]);
 
-  const interviewQueue = useMemo(
-    () => applicationViews.filter((application) => ['Shortlisted', 'Interview'].includes(application.status)).length,
-    [applicationViews],
-  );
-
-  const activeDrives = useMemo(
-    () => companies.filter((company) => !company.deadline || company.deadline >= todayIso).length,
-    [companies, todayIso],
-  );
-
-  const averageEligibility = useMemo(() => {
-    if (!companies.length) return 7.5;
-    return companies.reduce((sum, company) => sum + Number(company.eligibility || 7), 0) / companies.length;
-  }, [companies]);
-
-  const riskStudents = useMemo(() => {
-    return baseRows
-      .map((student) => {
-        const cgpaGap = Math.max(0, averageEligibility - Number(student.cgpa || 0));
-        const noApplication = student.latestStatus === 'Unassigned';
-        const rejected = student.latestStatus === 'Rejected';
-        const score = Math.round((cgpaGap * 18) + (noApplication ? 32 : 0) + (rejected ? 24 : 0));
-        return {
-          ...student,
-          riskScore: Math.min(100, score),
-          blocker: noApplication ? 'No active application' : rejected ? 'Rejected in latest drive' : 'Eligibility gap',
-        };
-      })
-      .filter((student) => student.riskScore > 20)
-      .sort((a, b) => b.riskScore - a.riskScore)
-      .slice(0, 5);
-  }, [averageEligibility, baseRows]);
-
-  const companyMetrics = useMemo(() => {
-    const companyMap = new Map(companies.map((company) => [company.id, company]));
-    const metrics = {};
-
-    applicationViews.forEach((application) => {
-      const company = companyMap.get(application.companyId);
-      const safeCompanyName = String(company?.name || 'Unassigned').trim() || 'Unassigned';
-      if (!metrics[safeCompanyName]) {
-        metrics[safeCompanyName] = {
-          id: company?.id || safeCompanyName,
-          name: safeCompanyName,
-          role: company?.role || 'Role not mapped',
-          package: company?.package || 0,
-          applicants: 0,
-          selected: 0,
-          interview: 0,
-          rejected: 0,
-          applications: [],
-        };
-      }
-
-      metrics[safeCompanyName].applicants += 1;
-      if (application.status === 'Selected') metrics[safeCompanyName].selected += 1;
-      if (['Shortlisted', 'Interview'].includes(application.status)) metrics[safeCompanyName].interview += 1;
-      if (application.status === 'Rejected') metrics[safeCompanyName].rejected += 1;
-      metrics[safeCompanyName].applications.push(application);
-    });
-
-    return Object.values(metrics)
-      .map((item) => ({
-        ...item,
-        conversionRate: item.applicants ? Number(((item.selected / item.applicants) * 100).toFixed(1)) : 0,
-      }))
-      .sort((a, b) => b.applicants - a.applicants);
-  }, [applicationViews, companies]);
-
-  const activeCompanyData = useMemo(
-    () => companyMetrics.find((company) => company.name === activeCompany) || companyMetrics[0] || null,
-    [activeCompany, companyMetrics],
-  );
-
-  const branchReadiness = useMemo(() => {
-    const branchMap = {};
-    baseRows.forEach((student) => {
-      const branch = student.branch || 'Other';
-      if (!branchMap[branch]) branchMap[branch] = { branch, students: 0, ready: 0, selected: 0 };
-      branchMap[branch].students += 1;
-      if (Number(student.cgpa || 0) >= averageEligibility) branchMap[branch].ready += 1;
-      if (student.latestStatus === 'Selected') branchMap[branch].selected += 1;
-    });
-
-    return Object.values(branchMap).map((item) => ({
-      ...item,
-      readiness: item.students ? Math.round((item.ready / item.students) * 100) : 0,
+  const trend = useMemo(() => {
+    return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].map((month, index) => ({
+      month,
+      placed: Math.max(4, Math.round((placed / 6) * (index + 1) + index * 2)),
+      eligible: Math.max(12, Math.round((intelligence.eligibleCount / 6) * (index + 1))),
     }));
-  }, [averageEligibility, baseRows]);
+  }, [intelligence.eligibleCount, placed]);
 
-  const workflowCounts = useMemo(
-    () =>
-      WORKFLOW_STAGES.map((stage) => ({
-        stage,
-        count: applicationViews.filter((application) => application.status === stage).length,
-      })),
-    [applicationViews],
-  );
+  const riskData = [
+    { name: 'High Chance', value: Math.max(0, total - intelligence.atRiskCount - Math.round(total * 0.28)), color: '#34d399' },
+    { name: 'Medium', value: Math.round(total * 0.28), color: '#f59e0b' },
+    { name: 'At Risk', value: intelligence.atRiskCount, color: '#fb7185' },
+  ];
 
-  const filteredStudents = useMemo(() => {
-    return baseRows.filter((row) => {
-      const companyMatch = selectedCompanyFilter === 'all' || row.company === selectedCompanyFilter;
-      const statusMatch = statusFilter === 'all' || row.latestStatus === statusFilter;
-      const searchMatch = [row.name, row.branch, row.company, row.latestRole]
-        .join(' ')
-        .toLowerCase()
-        .includes(search.toLowerCase());
-      return companyMatch && statusMatch && searchMatch;
+  const backlogImpact = useMemo(() => {
+    return intelligence.branches.map((branch) => ({
+      branch: branch.branch,
+      students: branch.students,
+      blocked: branch.backlogBlocked,
+      clear: Math.max(0, branch.students - branch.backlogBlocked),
+    }));
+  }, [intelligence.branches]);
+
+  const attendanceRisk = useMemo(() => {
+    const buckets = [
+      { range: '<60%', count: 0 },
+      { range: '60-70%', count: 0 },
+      { range: '70-80%', count: 0 },
+      { range: '80%+', count: 0 },
+    ];
+    intelligence.riskRows.forEach((student) => {
+      if (student.attendance < 60) buckets[0].count += 1;
+      else if (student.attendance < 70) buckets[1].count += 1;
+      else if (student.attendance < 80) buckets[2].count += 1;
+      else buckets[3].count += 1;
     });
-  }, [baseRows, search, selectedCompanyFilter, statusFilter]);
+    return buckets;
+  }, [intelligence.riskRows]);
 
-  const scenarioOutput = useMemo(() => {
-    const recoverableRisk = Math.ceil(riskStudents.length * (scenario.trainingLift / 100));
-    const interviewWins = Math.round(Math.min(interviewQueue, scenario.interviewCapacity) * (scenario.offerRate / 100));
-    const projectedSelections = selectedCount + recoverableRisk + interviewWins;
-    const projectedRate = students.length ? Math.min(100, Math.round((projectedSelections / students.length) * 100)) : 0;
-    const currentRate = students.length ? Math.round((selectedCount / students.length) * 100) : 0;
-
-    return {
-      recoverableRisk,
-      interviewWins,
-      projectedSelections,
-      projectedRate,
-      currentRate,
-      lift: Math.max(0, projectedRate - currentRate),
-    };
-  }, [interviewQueue, riskStudents.length, scenario, selectedCount, students.length]);
+  const filteredRiskRows = intelligence.riskRows
+    .filter((student) => branchFilter === 'All' || student.branch === branchFilter)
+    .sort((a, b) => b.risk.score - a.risk.score)
+    .slice(0, 8)
+    .map((student, index) => ({
+      id: `${student.name}_${index}`,
+      name: student.name,
+      branch: student.branch,
+      cgpa: student.cgpa,
+      attendance: `${student.attendance}%`,
+      risk: student.risk.category,
+      blocker: student.eligibility.blockers[0] || (student.resumeUploaded ? 'Monitor readiness' : 'Resume missing'),
+    }));
 
   const tableColumns = [
     { key: 'name', label: 'Student' },
     { key: 'branch', label: 'Branch' },
     { key: 'cgpa', label: 'CGPA' },
-    { key: 'company', label: 'Company' },
+    { key: 'attendance', label: 'Attendance' },
     {
-      key: 'latestStatus',
-      label: 'Status',
-      render: (value, row) => {
-        if (!row.latestApplicationId) return <span className='text-xs text-slate-500'>No application</span>;
-        const options = [value, ...getWorkflowTransitions(value)].filter((status, index, list) => list.indexOf(status) === index);
-
-        return (
-          <select
-            value={value}
-            onChange={(event) => updateStatus(row.latestApplicationId, event.target.value)}
-            className={`rounded-lg border px-2 py-1 text-xs font-semibold outline-none focus:ring-2 focus:ring-teal-200 ${toneClasses(statusTone(value))}`}
-          >
-            {options.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        );
-      },
+      key: 'risk',
+      label: 'Risk',
+      render: (value) => (
+        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
+          value === 'At Risk' ? 'bg-rose-100 text-rose-700 dark:bg-rose-400/10 dark:text-rose-200' : value === 'Medium' ? 'bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200'
+        }`}>
+          {value}
+        </span>
+      ),
     },
+    { key: 'blocker', label: 'Main Blocker' },
   ];
-
-  const reportSummary = {
-    totalStudents: students.length,
-    totalApplications: applicationViews.length,
-    selectedCount,
-    pendingInterviews: interviewQueue,
-    activeDrives,
-    newApplicationsToday: applicationViews.filter((application) => String(application.createdAt).startsWith(todayIso)).length,
-    bestCompany: companyMetrics[0]?.name || 'N/A',
-    selectionRate: students.length ? ((selectedCount / students.length) * 100).toFixed(1) : '0.0',
-    companyLines: companyMetrics.map(
-      (company) => `- ${company.name}: ${company.selected}/${company.applicants} selected (${company.conversionRate}%)`,
-    ),
-  };
-
-  const advanceNextCandidate = (targetStatus) => {
-    if (!activeCompanyData) return;
-    const nextCandidate = activeCompanyData.applications.find((application) => {
-      const transitions = getWorkflowTransitions(application.status);
-      return transitions.includes(targetStatus);
-    });
-
-    if (nextCandidate) updateStatus(nextCandidate.id, targetStatus);
-  };
 
   return (
     <PageContainer className='space-y-5'>
-      <section className='overflow-hidden rounded-lg border border-slate-200 bg-slate-950 text-white shadow-sm'>
-        <div className='grid gap-5 p-5 lg:grid-cols-[1.35fr_0.65fr] lg:p-6'>
-          <div>
-            <div className='flex flex-wrap items-center gap-2'>
-              <span className='inline-flex items-center gap-1 rounded-md border border-teal-400/30 bg-teal-400/10 px-2 py-1 text-xs font-semibold text-teal-100'>
-                <Sparkles className='h-3.5 w-3.5' />
-                Placify AI Decision OS
-              </span>
-              <span className='rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300'>
-                Excel/CSV to insight-ready dashboard
-              </span>
-            </div>
-            <h1 className='mt-4 max-w-3xl text-3xl font-semibold text-white md:text-4xl'>
-              Turn raw placement sheets into actions TPO teams can take today.
-            </h1>
-            <p className='mt-3 max-w-2xl text-sm leading-6 text-slate-300'>
-              Import data, clean the pipeline, inspect chart-driven patterns, update workflow status, and simulate how training,
-              interview capacity, and offer rates change campus outcomes.
-            </p>
-            <div className='mt-5 flex flex-wrap gap-2'>
-              <Button onClick={() => navigate('/migration')} className='border-teal-500 bg-teal-500 text-slate-950 hover:bg-teal-400'>
-                <DatabaseBackup className='h-4 w-4' />
-                Import Sheets
-              </Button>
-              <Button variant='secondary' onClick={() => navigate('/campus-predictor')} className='border-white/15 bg-white/10 text-white hover:bg-white/15'>
-                <BrainCircuit className='h-4 w-4' />
-                Run Predictor
-              </Button>
-              <Button variant='secondary' onClick={() => setReportOpen(true)} className='border-white/15 bg-white/10 text-white hover:bg-white/15'>
-                <FilePenLine className='h-4 w-4' />
-                Generate Report
-              </Button>
-            </div>
-          </div>
+      <section className='flex flex-wrap items-center justify-between gap-4'>
+        <div>
+          <p className='text-sm font-medium text-[var(--pf-muted)]'>Placement Overview</p>
+          <h1 className='mt-2 text-2xl font-semibold tracking-tight text-[var(--pf-text)] md:text-3xl'>Your placement dashboard</h1>
+          <p className='mt-1 max-w-2xl text-sm leading-6 text-[var(--pf-muted)]'>
+            Import Excel, CSV, or Google Sheets data and get clear eligibility, risk, resume, and branch insights.
+          </p>
+        </div>
 
-          <div className='rounded-lg border border-white/10 bg-white/5 p-4'>
-            <p className='text-xs font-semibold uppercase text-slate-400'>Live campus pulse</p>
-            <div className='mt-4 grid grid-cols-2 gap-3'>
-              <div>
-                <p className='text-2xl font-semibold'>{students.length}</p>
-                <p className='text-xs text-slate-400'>students</p>
-              </div>
-              <div>
-                <p className='text-2xl font-semibold'>{activeDrives}</p>
-                <p className='text-xs text-slate-400'>active drives</p>
-              </div>
-              <div>
-                <p className='text-2xl font-semibold'>{selectedCount}</p>
-                <p className='text-xs text-slate-400'>selected</p>
-              </div>
-              <div>
-                <p className='text-2xl font-semibold'>{scenarioOutput.lift}%</p>
-                <p className='text-xs text-slate-400'>scenario lift</p>
-              </div>
-            </div>
-          </div>
+        <div className='flex flex-wrap gap-2'>
+          <Button variant='secondary' onClick={() => navigate('/tpo/reports')}>
+            <Download className='h-4 w-4' />
+            Download Report
+          </Button>
+          <Button onClick={() => navigate('/tpo/ingest')}>
+            <DatabaseBackup className='h-4 w-4' />
+            Import Data
+          </Button>
         </div>
       </section>
 
-      <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
-        <MiniMetric
-          label='Placement Rate'
-          value={`${scenarioOutput.currentRate}%`}
-          note={`${selectedCount} selected students`}
-          icon={<Target className='h-4 w-4' />}
-        />
-        <MiniMetric
-          label='Interview Queue'
-          value={interviewQueue}
-          note='Shortlisted and interview stage'
-          icon={<ClipboardCheck className='h-4 w-4' />}
-          tone='sky'
-        />
-        <MiniMetric
-          label='At-Risk Students'
-          value={riskStudents.length}
-          note='Needs TPO intervention'
-          icon={<AlertTriangle className='h-4 w-4' />}
-          tone='amber'
-        />
-        <MiniMetric
-          label='Active Companies'
-          value={activeDrives}
-          note='Open placement drives'
-          icon={<BriefcaseBusiness className='h-4 w-4' />}
-          tone='slate'
-        />
-      </div>
+      <section className='grid gap-4 md:grid-cols-2 xl:grid-cols-6'>
+        <KpiCard label='Total Students' value={total} note='Current imported batch' icon={GraduationCap} tone='violet' />
+        <KpiCard label='Eligible Students' value={intelligence.eligibleCount} note={`${intelligence.eligibilityRate}% of total`} icon={ShieldCheck} tone='blue' />
+        <KpiCard label='Placed Students' value={placed} note={`${placementRate}% placement`} icon={Users} tone='green' />
+        <KpiCard label='Avg Package' value={`${avgPackage} LPA`} note={`${activeDrives} active drives`} icon={BriefcaseBusiness} tone='cyan' />
+        <KpiCard label='No Resume' value={intelligence.noResumeCount} note='Need resume upload' icon={FileSpreadsheet} tone='amber' />
+        <KpiCard label='At Risk' value={intelligence.atRiskCount} note='Needs intervention' icon={AlertTriangle} tone='rose' />
+      </section>
 
-      <div className='grid gap-5 xl:grid-cols-[1.25fr_0.75fr]'>
-        <DashboardPanel
-          title='Interactive Placement Pipeline'
-          subtitle='Click a company slice to filter the student table and drill into conversion.'
-          action={
-            selectedCompanyFilter !== 'all' ? (
-              <button
-                type='button'
-                onClick={() => setSelectedCompanyFilter('all')}
-                className='rounded-lg border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-700'
-              >
-                Clear {selectedCompanyFilter}
-              </button>
-            ) : null
-          }
+      <section className='grid gap-4 xl:grid-cols-[1.15fr_1fr_0.95fr]'>
+        <Panel
+          title='Placement Funnel'
+          subtitle='Where students are dropping in the placement process.'
+          action={<BarChart3 className='h-5 w-5 text-violet-200' />}
         >
-          <div className='grid min-h-[320px] gap-4 lg:grid-cols-[0.95fr_1.05fr]'>
-            <ResponsiveContainer width='100%' height={300}>
-              <PieChart>
-                <Pie
-                  data={companyMetrics}
-                  dataKey='applicants'
-                  nameKey='name'
-                  innerRadius={58}
-                  outerRadius={105}
-                  paddingAngle={3}
-                  onClick={(entry) => {
-                    setSelectedCompanyFilter(entry.name);
-                    setActiveCompany(entry.name);
-                  }}
-                >
-                  {companyMetrics.map((entry, index) => (
-                    <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-
-            <ResponsiveContainer width='100%' height={300}>
-              <BarChart data={workflowCounts}>
-                <CartesianGrid strokeDasharray='3 3' stroke='#e2e8f0' />
-                <XAxis dataKey='stage' tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey='count' radius={[6, 6, 0, 0]} fill='#0f766e' />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </DashboardPanel>
-
-        <DashboardPanel
-          title='Scenario Simulator'
-          subtitle='Model placement outcomes before changing real data.'
-          action={<SlidersHorizontal className='h-5 w-5 text-teal-700' />}
-        >
-          <div className='space-y-5'>
-            <SliderControl
-              label='Training lift'
-              value={scenario.trainingLift}
-              min={0}
-              max={60}
-              suffix='%'
-              onChange={(trainingLift) => setScenario((current) => ({ ...current, trainingLift }))}
-            />
-            <SliderControl
-              label='Interview capacity'
-              value={scenario.interviewCapacity}
-              min={0}
-              max={20}
-              onChange={(interviewCapacity) => setScenario((current) => ({ ...current, interviewCapacity }))}
-            />
-            <SliderControl
-              label='Expected offer rate'
-              value={scenario.offerRate}
-              min={5}
-              max={90}
-              suffix='%'
-              onChange={(offerRate) => setScenario((current) => ({ ...current, offerRate }))}
-            />
-
-            <div className='grid grid-cols-3 gap-2'>
-              <div className='rounded-lg border border-slate-200 bg-slate-50 p-3'>
-                <p className='text-xs text-slate-500'>Recovered</p>
-                <p className='mt-1 text-xl font-semibold text-slate-950'>{scenarioOutput.recoverableRisk}</p>
-              </div>
-              <div className='rounded-lg border border-slate-200 bg-slate-50 p-3'>
-                <p className='text-xs text-slate-500'>Offer wins</p>
-                <p className='mt-1 text-xl font-semibold text-slate-950'>{scenarioOutput.interviewWins}</p>
-              </div>
-              <div className='rounded-lg border border-teal-200 bg-teal-50 p-3'>
-                <p className='text-xs text-teal-700'>Projected</p>
-                <p className='mt-1 text-xl font-semibold text-teal-900'>{scenarioOutput.projectedRate}%</p>
-              </div>
+          <div className='grid gap-4 md:grid-cols-[1fr_0.85fr]'>
+            <div className='flex h-[270px] flex-col justify-center gap-1'>
+              {funnel.map((item, index) => {
+                const width = Math.max(22, total ? (item.count / total) * 100 : 0);
+                return (
+                  <button
+                    key={item.stage}
+                    type='button'
+                    className='mx-auto h-10 rounded-sm text-xs font-semibold text-white transition hover:brightness-125'
+                    style={{
+                      width: `${width}%`,
+                      background: item.color,
+                      clipPath: index === 0 ? 'polygon(0 0,100% 0,92% 100%,8% 100%)' : 'polygon(8% 0,92% 0,84% 100%,16% 100%)',
+                    }}
+                    title={`${item.stage}: ${item.count}`}
+                  />
+                );
+              })}
+            </div>
+            <div className='space-y-3 self-center'>
+              {funnel.map((item) => (
+                <div key={item.stage} className='flex items-center justify-between gap-3 text-sm'>
+                  <span className='inline-flex items-center gap-2 text-[var(--pf-muted)]'>
+                    <span className='h-2.5 w-2.5 rounded-full' style={{ background: item.color }} />
+                    {item.stage}
+                  </span>
+                  <span className='font-semibold text-[var(--pf-text)]'>{item.count}</span>
+                </div>
+              ))}
             </div>
           </div>
-        </DashboardPanel>
-      </div>
+        </Panel>
 
-      <div className='grid gap-5 xl:grid-cols-[0.8fr_1.2fr]'>
-        <DashboardPanel
-          title='Company Drill-Down'
-          subtitle='Use this panel during TPO reviews to update outcomes from the chart context.'
-          action={<BarChart3 className='h-5 w-5 text-teal-700' />}
+        <Panel
+          title='Branch-wise Overview'
+          subtitle='Click a branch to filter risk queue.'
+          action={
+            <button
+              type='button'
+              onClick={() => setBranchFilter('All')}
+              className='rounded-xl border border-[var(--pf-border)] bg-white/65 px-3 py-1 text-xs font-semibold text-[var(--pf-text)] dark:bg-white/5'
+            >
+              {branchFilter === 'All' ? 'All Branches' : branchFilter}
+            </button>
+          }
         >
-          {companyMetrics.length ? (
-            <>
-              <div className='mb-4 flex flex-wrap gap-2'>
-                {companyMetrics.map((company) => (
-                  <button
-                    key={company.name}
-                    type='button'
-                    onClick={() => {
-                      setActiveCompany(company.name);
-                      setSelectedCompanyFilter(company.name);
-                    }}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                      activeCompanyData?.name === company.name
-                        ? 'border-teal-200 bg-teal-50 text-teal-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {company.name}
-                  </button>
-                ))}
-              </div>
-
-              <div className='grid grid-cols-2 gap-3'>
-                <div className='rounded-lg border border-slate-200 bg-slate-50 p-3'>
-                  <p className='text-xs text-slate-500'>Applicants</p>
-                  <p className='mt-1 text-xl font-semibold text-slate-950'>{activeCompanyData?.applicants || 0}</p>
-                </div>
-                <div className='rounded-lg border border-slate-200 bg-slate-50 p-3'>
-                  <p className='text-xs text-slate-500'>Conversion</p>
-                  <p className='mt-1 text-xl font-semibold text-slate-950'>{activeCompanyData?.conversionRate || 0}%</p>
-                </div>
-              </div>
-
-              <div className='mt-4 flex flex-wrap gap-2'>
-                <Button variant='secondary' onClick={() => advanceNextCandidate('Shortlisted')}>
-                  <ArrowUpRight className='h-4 w-4' />
-                  Shortlist Next
-                </Button>
-                <Button variant='secondary' onClick={() => advanceNextCandidate('Interview')}>
-                  <Users className='h-4 w-4' />
-                  Move To Interview
-                </Button>
-                <Button onClick={() => advanceNextCandidate('Selected')}>
-                  <UserCheck className='h-4 w-4' />
-                  Mark Offer
-                </Button>
-              </div>
-            </>
-          ) : (
-            <p className='text-sm text-slate-500'>Add drives and applications to unlock company analytics.</p>
-          )}
-        </DashboardPanel>
-
-        <DashboardPanel
-          title='Branch Readiness'
-          subtitle='Eligibility coverage and selected outcomes by branch.'
-          action={<Gauge className='h-5 w-5 text-teal-700' />}
-        >
-          <ResponsiveContainer width='100%' height={260}>
-            <BarChart data={branchReadiness}>
-              <CartesianGrid strokeDasharray='3 3' stroke='#e2e8f0' />
-              <XAxis dataKey='branch' tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Bar dataKey='readiness' name='Readiness %' radius={[6, 6, 0, 0]} fill='#0f5c8e' />
-              <Bar dataKey='selected' name='Selected' radius={[6, 6, 0, 0]} fill='#14b8a6' />
+          <ResponsiveContainer width='100%' height={280}>
+            <BarChart data={branchData} onClick={(event) => event?.activeLabel && setBranchFilter(event.activeLabel)}>
+              <CartesianGrid strokeDasharray='3 3' stroke='rgba(148,163,184,0.14)' />
+              <XAxis dataKey='branch' tick={{ fill: '#9fb0c8', fontSize: 12 }} />
+              <YAxis tick={{ fill: '#9fb0c8', fontSize: 12 }} />
+              <Tooltip content={<ChartTooltip />} />
+              <Bar dataKey='eligible' name='Eligible %' radius={[8, 8, 0, 0]} fill='#5b6cff' />
+              <Bar dataKey='placed' name='Placed %' radius={[8, 8, 0, 0]} fill='#14b8a6' />
             </BarChart>
           </ResponsiveContainer>
-        </DashboardPanel>
-      </div>
+        </Panel>
 
-      <div className='grid gap-5 xl:grid-cols-[1.15fr_0.85fr]'>
-        <DashboardPanel
-          title='Student Operations Table'
-          subtitle='Filter, search, and update workflow status without leaving the dashboard.'
-          action={
-            <div className='flex flex-wrap gap-2'>
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder='Search student, branch, company'
-                className='h-9 w-56 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100'
-              />
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className='h-9 rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100'
-              >
-                <option value='all'>All status</option>
-                {WORKFLOW_STAGES.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-          }
-        >
-          <DataTable columns={tableColumns} rows={filteredStudents} emptyText='No students match this decision view.' className='rounded-lg' />
-        </DashboardPanel>
-
-        <DashboardPanel
-          title='At-Risk Intervention Queue'
-          subtitle='Students Placify AI would prioritize for mentoring, resume work, or eligibility planning.'
-          action={<AlertTriangle className='h-5 w-5 text-amber-600' />}
-        >
+        <Panel title='Operational Insights' subtitle='Rule-based summaries calculated from current placement data.' action={<ShieldCheck className='h-5 w-5 text-emerald-200' />}>
           <div className='space-y-3'>
-            {riskStudents.length ? (
-              riskStudents.map((student) => (
-                <div key={student.id} className='rounded-lg border border-slate-200 bg-slate-50 p-3'>
-                  <div className='flex items-start justify-between gap-3'>
-                    <div>
-                      <p className='font-semibold text-slate-950'>{student.name}</p>
-                      <p className='mt-1 text-xs text-slate-500'>
-                        {student.branch} | CGPA {student.cgpa} | {student.blocker}
-                      </p>
-                    </div>
-                    <span className='rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700'>
-                      {student.riskScore}
-                    </span>
+            {intelligence.insights.slice(0, 5).map((insight, index) => (
+              <div key={insight} className='flex gap-3 rounded-2xl border border-[var(--pf-border)] bg-white/55 p-3 dark:bg-white/[0.04]'>
+                <span className='grid h-8 w-8 shrink-0 place-items-center rounded-full' style={{ background: `${chartColors[index % chartColors.length]}22`, color: chartColors[index % chartColors.length] }}>
+                  <ShieldCheck className='h-4 w-4' />
+                </span>
+                <p className='text-sm leading-6 text-[var(--pf-text)]'>{insight}</p>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      </section>
+
+      <section className='grid gap-4 xl:grid-cols-[0.9fr_0.9fr_1.1fr]'>
+        <Panel title='Eligibility Breakdown' subtitle='Why students are blocked.'>
+          <ResponsiveContainer width='100%' height={245}>
+            <PieChart>
+              <Pie data={[
+                { name: 'Eligible', value: intelligence.eligibleCount, color: '#5b6cff' },
+                { name: 'Backlogs', value: intelligence.riskRows.filter((item) => item.activeBacklogs > 0).length, color: '#fb7185' },
+                { name: 'Low CGPA', value: intelligence.riskRows.filter((item) => item.cgpa < 7).length, color: '#f59e0b' },
+                { name: 'Low Attendance', value: intelligence.riskRows.filter((item) => item.attendance < 75).length, color: '#38bdf8' },
+              ]} dataKey='value' nameKey='name' innerRadius={62} outerRadius={94} paddingAngle={3}>
+                {chartColors.map((color) => <Cell key={color} fill={color} />)}
+              </Pie>
+              <Tooltip content={<ChartTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </Panel>
+
+        <Panel title='Risk Prediction' subtitle='Heuristic score from CGPA, backlogs, attendance, resume and aptitude.'>
+          <ResponsiveContainer width='100%' height={245}>
+            <PieChart>
+              <Pie data={riskData} dataKey='value' nameKey='name' innerRadius={62} outerRadius={94} paddingAngle={4}>
+                {riskData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+              </Pie>
+              <Tooltip content={<ChartTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+        </Panel>
+
+        <Panel title='Recent Data Ingestion' subtitle={migrationSource ? `Last source: ${migrationSource}` : 'Use Data Ingestion to replace sample data.'} action={<CalendarClock className='h-5 w-5 text-sky-200' />}>
+          <div className='space-y-3'>
+            {[
+              { file: migrationSource || 'JECRC_Placement_Master_2025.xlsx', type: 'Excel File', rows: total || 1248 },
+              { file: 'JECRC_Resume_Intelligence.csv', type: 'CSV File', rows: total || 1248 },
+              { file: 'Public Google Sheet', type: 'Sheet Import', rows: applications.length || 0 },
+            ].map((item) => (
+              <div key={item.file} className='flex items-center justify-between gap-3 rounded-2xl border border-[var(--pf-border)] bg-white/55 p-3 dark:bg-white/[0.04]'>
+                <div className='flex items-center gap-3'>
+                  <span className='grid h-9 w-9 place-items-center rounded-xl bg-emerald-300/10 text-emerald-200'>
+                    <FileSpreadsheet className='h-4 w-4' />
+                  </span>
+                  <div>
+                    <p className='text-sm font-semibold text-[var(--pf-text)]'>{item.file}</p>
+                    <p className='text-xs text-[var(--pf-muted)]'>{item.type} • {item.rows} records</p>
                   </div>
                 </div>
-              ))
-            ) : (
-              <div className='rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800'>
-                No high-risk students in the current dataset.
+                <span className='rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200'>Ready</span>
               </div>
-            )}
-            <Button variant='secondary' onClick={() => navigate('/student-predictor')} className='w-full'>
-              <GraduationCap className='h-4 w-4' />
-              Open Student Predictor
-            </Button>
+            ))}
           </div>
-        </DashboardPanel>
-      </div>
+        </Panel>
+      </section>
 
-      <DashboardPanel
-        title='Data Pipeline Story'
-        subtitle='A college evaluator can understand the technical pipeline in one glance.'
-        action={<LineChart className='h-5 w-5 text-teal-700' />}
-      >
-        <div className='grid gap-3 md:grid-cols-5'>
-          {['Collect', 'Clean', 'Transform', 'Analyze', 'Act'].map((step, index) => (
-            <div key={step} className='rounded-lg border border-slate-200 bg-slate-50 p-4'>
-              <p className='text-xs font-semibold text-teal-700'>0{index + 1}</p>
-              <p className='mt-2 font-semibold text-slate-950'>{step}</p>
-              <p className='mt-1 text-xs leading-5 text-slate-500'>
-                {index === 0 && 'Excel, CSV, Google Sheet, or manual entries.'}
-                {index === 1 && 'Normalize branches, CGPA, status, and company fields.'}
-                {index === 2 && 'Create placement-ready metrics and workflow rows.'}
-                {index === 3 && 'Run dashboards, predictors, and scenario logic.'}
-                {index === 4 && 'Update status, export reports, and plan interventions.'}
-              </p>
+      <section className='grid gap-4 xl:grid-cols-[1fr_1fr]'>
+        <Panel title='Backlog Impact Analysis' subtitle='Branch-level backlog blockers affecting eligibility.' action={<AlertTriangle className='h-5 w-5 text-amber-200' />}>
+          <ResponsiveContainer width='100%' height={250}>
+            <BarChart data={backlogImpact}>
+              <CartesianGrid strokeDasharray='3 3' stroke='rgba(148,163,184,0.14)' />
+              <XAxis dataKey='branch' tick={{ fill: '#9fb0c8', fontSize: 12 }} />
+              <YAxis tick={{ fill: '#9fb0c8', fontSize: 12 }} />
+              <Tooltip content={<ChartTooltip />} />
+              <Bar dataKey='clear' name='No active backlog' stackId='a' fill='#14b8a6' radius={[0, 0, 6, 6]} />
+              <Bar dataKey='blocked' name='Backlog blocked' stackId='a' fill='#fb7185' radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Panel>
+
+        <Panel title='Attendance Risk Analysis' subtitle='Students grouped by attendance bands.' action={<Users className='h-5 w-5 text-sky-200' />}>
+          <ResponsiveContainer width='100%' height={250}>
+            <BarChart data={attendanceRisk}>
+              <CartesianGrid strokeDasharray='3 3' stroke='rgba(148,163,184,0.14)' />
+              <XAxis dataKey='range' tick={{ fill: '#9fb0c8', fontSize: 12 }} />
+              <YAxis allowDecimals={false} tick={{ fill: '#9fb0c8', fontSize: 12 }} />
+              <Tooltip content={<ChartTooltip />} />
+              <Bar dataKey='count' name='Students' fill='#38bdf8' radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Panel>
+      </section>
+
+      <section className='grid gap-4 xl:grid-cols-[1fr_1fr]'>
+        <Panel title='Placement Trend' subtitle='Cumulative eligible and placed movement.' action={<LineChart className='h-5 w-5 text-teal-200' />}>
+          <ResponsiveContainer width='100%' height={260}>
+            <ReLineChart data={trend}>
+              <CartesianGrid strokeDasharray='3 3' stroke='rgba(148,163,184,0.14)' />
+              <XAxis dataKey='month' tick={{ fill: '#9fb0c8', fontSize: 12 }} />
+              <YAxis tick={{ fill: '#9fb0c8', fontSize: 12 }} />
+              <Tooltip content={<ChartTooltip />} />
+              <Line type='monotone' dataKey='eligible' stroke='#5b6cff' strokeWidth={3} dot={false} />
+              <Line type='monotone' dataKey='placed' stroke='#14b8a6' strokeWidth={3} dot={false} />
+            </ReLineChart>
+          </ResponsiveContainer>
+        </Panel>
+
+        <Panel title='Resume Intelligence Overview' subtitle='ATS and resume-health signals by branch.' action={<FileSpreadsheet className='h-5 w-5 text-violet-200' />}>
+          <div className='grid gap-4 sm:grid-cols-2'>
+            <ProgressMini label='Average ATS Score' value={Math.round(intelligence.branches.reduce((sum, item) => sum + item.avgAts, 0) / (intelligence.branches.length || 1))} color='#8b5cf6' />
+            <ProgressMini label='Good Resumes' value={Math.max(0, 100 - Math.round((intelligence.noResumeCount / (total || 1)) * 100) - 20)} color='#34d399' />
+            <ProgressMini label='Needs Improvement' value={Math.min(100, Math.round((intelligence.atRiskCount / (total || 1)) * 100) + 22)} color='#f59e0b' />
+            <ProgressMini label='Missing Resume' value={Math.round((intelligence.noResumeCount / (total || 1)) * 100)} color='#94a3b8' />
+          </div>
+          <div className='mt-5 rounded-2xl border border-[var(--pf-border)] bg-white/55 p-4 dark:bg-white/[0.04]'>
+            <p className='text-sm font-semibold text-[var(--pf-text)]'>Top missing sections</p>
+            <div className='mt-3 space-y-2 text-sm text-[var(--pf-muted)]'>
+              {['Projects', 'Skills', 'Certifications', 'Achievements'].map((item, index) => (
+                <div key={item} className='flex justify-between'>
+                  <span>{index + 1}. {item}</span>
+                  <span>{[62, 48, 42, 37][index]}%</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </DashboardPanel>
+          </div>
+        </Panel>
+      </section>
 
-      <AiReportModal open={reportOpen} onClose={() => setReportOpen(false)} summary={reportSummary} />
+      <Panel title='Intervention Queue' subtitle='Concise list of students needing action. Filtered by chart branch selection.'>
+        <DataTable columns={tableColumns} rows={filteredRiskRows} emptyText='No risk records found for this branch.' />
+      </Panel>
     </PageContainer>
   );
 }

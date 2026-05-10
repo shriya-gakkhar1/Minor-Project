@@ -7,7 +7,7 @@ import Card from '../components/Card';
 import Input from '../components/Input';
 import PageContainer from '../components/PageContainer';
 import SectionHeader from '../components/SectionHeader';
-import { optimizeResumeWithOssPipeline } from '../services/predictionService';
+import { getOcrStatus, optimizeResumeWithOssPipeline, parseResumeSignals } from '../services/predictionService';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -124,7 +124,7 @@ function buildAtsReportText(result) {
   const pipeline = result?.pipeline || {};
 
   const lines = [
-    'PlaceFlow Resume Studio - ATS Optimization Report',
+    'Placify AI Resume Studio - ATS Optimization Report',
     `Generated: ${new Date().toISOString()}`,
     '',
     `Candidate: ${profile.name || 'N/A'}`,
@@ -163,6 +163,9 @@ export default function ResumeStudioPage() {
   const [packaging, setPackaging] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [parserLoading, setParserLoading] = useState(false);
+  const [parserResult, setParserResult] = useState(null);
+  const [ocrStatus, setOcrStatus] = useState(null);
 
   const score = Number(result?.ats?.overall_score || 0);
 
@@ -197,6 +200,29 @@ export default function ResumeStudioPage() {
       setResult(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleParseOnly = async () => {
+    if (!resumeFile) {
+      setError('Upload a resume file first (PDF/DOCX/TXT/MD/IMAGE).');
+      return;
+    }
+
+    setError('');
+    setParserLoading(true);
+    try {
+      const [signals, status] = await Promise.all([
+        parseResumeSignals(resumeFile),
+        getOcrStatus(),
+      ]);
+      setParserResult(signals);
+      setOcrStatus(status);
+    } catch (parseError) {
+      setError(parseError.message || 'Resume parsing failed.');
+      setParserResult(null);
+    } finally {
+      setParserLoading(false);
     }
   };
 
@@ -246,10 +272,10 @@ export default function ResumeStudioPage() {
           <label className='mt-4 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-6 py-8 text-center transition hover:border-teal-300 hover:bg-teal-50'>
             <FileUp className='h-6 w-6 text-slate-500' />
             <span className='mt-2 text-sm font-medium text-slate-700'>Upload Old Resume</span>
-            <span className='mt-1 text-xs text-slate-500'>PDF, DOC, DOCX, TXT, PNG, JPG</span>
+            <span className='mt-1 text-xs text-slate-500'>PDF, DOC, DOCX, TXT, MD, PNG, JPG, WEBP, BMP, TIFF</span>
             <input
               type='file'
-              accept='.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.bmp,.tiff'
+              accept='.pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.webp,.bmp,.tiff'
               className='hidden'
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -275,6 +301,10 @@ export default function ResumeStudioPage() {
           </div>
 
           <div className='mt-4 flex flex-wrap items-center gap-2'>
+            <Button variant='secondary' onClick={handleParseOnly} disabled={parserLoading}>
+              {parserLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : <FileScan className='h-4 w-4' />}
+              {parserLoading ? 'Parsing...' : 'Parse Resume Only'}
+            </Button>
             <Button onClick={handleRunPipeline} disabled={loading}>
               {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : <FileScan className='h-4 w-4' />}
               {loading ? 'Optimizing Resume...' : 'Run OSS Resume Pipeline'}
@@ -442,6 +472,59 @@ export default function ResumeStudioPage() {
           </p>
         </Card>
       )}
+
+      {parserResult ? (
+        <Card>
+          <SectionHeader
+            title='Resume Parser Output'
+            subtitle={`Source: ${parserResult.source || 'resume parser'} | OCR: ${ocrStatus?.mode || 'unknown'} (${ocrStatus?.engine || 'PaddleOCR'})`}
+          />
+          <div className='grid gap-4 md:grid-cols-4'>
+            <ParserMetric label='Resume Score' value={parserResult.resumeScore || 0} />
+            <ParserMetric label='ATS Score' value={parserResult.atsScore || 0} />
+            <ParserMetric label='Keyword Match' value={parserResult.keywordScore || 0} />
+            <ParserMetric label='Completeness' value={parserResult.resumeCompletenessScore || 0} />
+          </div>
+          <div className='mt-4 grid gap-4 lg:grid-cols-3'>
+            <ParserList title='Detected Skills' items={parserResult.skills} />
+            <ParserList title='Technologies' items={parserResult.technologies} />
+            <ParserList title='Certifications' items={parserResult.certifications} />
+          </div>
+          <div className='mt-4 grid gap-3 text-sm text-slate-300 md:grid-cols-3'>
+            <p className='rounded-xl border border-white/10 bg-slate-950/50 p-3'>Projects detected: {parserResult.no_of_projects}</p>
+            <p className='rounded-xl border border-white/10 bg-slate-950/50 p-3'>Internships detected: {parserResult.internships}</p>
+            <p className='rounded-xl border border-white/10 bg-slate-950/50 p-3'>Role alignment: {parserResult.roleAlignmentScore || 0}%</p>
+          </div>
+          <p className='mt-4 rounded-xl border border-white/10 bg-slate-950/50 p-3 text-xs leading-5 text-slate-500'>
+            {ocrStatus?.note || 'OCR status was not available. Text PDFs, DOCX, DOC, TXT, and MD still parse through non-OCR extractors.'}
+          </p>
+        </Card>
+      ) : null}
     </PageContainer>
+  );
+}
+
+function ParserMetric({ label, value }) {
+  return (
+    <div className='rounded-2xl border border-white/10 bg-slate-950/50 p-4'>
+      <p className='text-xs text-slate-500'>{label}</p>
+      <p className='mt-2 text-3xl font-bold text-white'>{value}</p>
+      <div className='mt-3 h-2 rounded-full bg-white/10'>
+        <div className='h-2 rounded-full bg-teal-300' style={{ width: `${Math.max(0, Math.min(100, Number(value || 0)))}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function ParserList({ title, items = [] }) {
+  return (
+    <div className='rounded-2xl border border-white/10 bg-slate-950/50 p-4'>
+      <h3 className='font-semibold text-white'>{title}</h3>
+      <div className='mt-3 flex flex-wrap gap-2'>
+        {items.length ? items.slice(0, 16).map((item) => (
+          <span key={item} className='rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1 text-xs font-semibold text-teal-100'>{item}</span>
+        )) : <p className='text-sm text-slate-500'>No signals detected yet.</p>}
+      </div>
+    </div>
   );
 }

@@ -1,0 +1,70 @@
+const express = require('express');
+const { buildInstitutionalIntelligence } = require('../services/institutionalIntelligenceEngine');
+
+const router = express.Router();
+
+function build(req, res) {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) {
+    return res.status(400).json({ message: 'rows array is required for placement intelligence.' });
+  }
+
+  return res.json(buildInstitutionalIntelligence({
+    rows,
+    criteria: req.body?.criteria || {},
+  }));
+}
+
+router.post('/ops', build);
+
+router.post('/eligibility', (req, res) => {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) {
+    return res.status(400).json({ message: 'rows array is required for eligibility scoring.' });
+  }
+
+  const result = buildInstitutionalIntelligence({
+    rows,
+    criteria: req.body?.criteria || {},
+  });
+
+  return res.json({
+    source: 'placify-eligibility-rules-v1',
+    totalStudents: result.totalStudents,
+    eligibleStudents: result.eligibleStudents,
+    ineligibleStudents: result.ineligibleStudents,
+    eligibilityRate: result.eligibilityRate,
+    students: result.riskRows.map((student) => ({
+      name: student.name,
+      enrollment: student.enrollment,
+      branch: student.branch,
+      eligibility: student.eligibility,
+    })),
+  });
+});
+
+router.post('/risk', (req, res) => {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+  if (!rows.length) {
+    return res.status(400).json({ message: 'rows array is required for risk scoring.' });
+  }
+
+  const result = buildInstitutionalIntelligence({
+    rows,
+    criteria: req.body?.criteria || {},
+  });
+
+  return res.json({
+    source: 'placify-risk-rules-v1',
+    atRiskStudents: result.atRiskStudents,
+    students: result.riskRows.map((student) => ({
+      name: student.name,
+      enrollment: student.enrollment,
+      branch: student.branch,
+      risk: student.risk,
+      eligibility: student.eligibility,
+    })),
+  });
+});
+
+module.exports = router;

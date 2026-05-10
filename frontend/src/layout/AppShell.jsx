@@ -1,94 +1,82 @@
-import { Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
 import { getNavItemsForRole } from '../components/navigationConfig';
 import Topbar from '../components/Topbar';
 import { usePlacementStore } from '../store/usePlacementStore';
 
+function getInitialTheme() {
+  try {
+    return localStorage.getItem('placify-theme') || 'light';
+  } catch {
+    return 'light';
+  }
+}
+
 export default function AppShell() {
   const role = usePlacementStore((state) => state.role);
   const auth = usePlacementStore((state) => state.auth);
-  const dataMode = usePlacementStore((state) => state.dataMode);
   const lastRefreshedAt = usePlacementStore((state) => state.lastRefreshedAt);
-  const setDataMode = usePlacementStore((state) => state.setDataMode);
   const triggerRealtimeRefresh = usePlacementStore((state) => state.triggerRealtimeRefresh);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(getInitialTheme);
 
   const navItems = useMemo(() => getNavItemsForRole(role), [role]);
 
-  const featuredExploreLinks = useMemo(() => {
-    if (role === 'admin') {
-      return [
-        { to: '/insights-lab', label: 'Insights Lab' },
-        { to: '/campus-predictor', label: 'Campus Predictor' },
-        { to: '/student-predictor', label: 'Student Predictor' },
-        { to: '/resume-studio', label: 'Resume Studio' },
-        { to: '/reports', label: 'Reports' },
-      ];
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    document.documentElement.classList.add('theme-transition');
+    try {
+      localStorage.setItem('placify-theme', theme);
+    } catch {
+      // Ignore storage failures; theme still works for this session.
     }
-
-    return [
-      { to: '/student', label: 'Student Home' },
-      { to: '/student/predictor', label: 'Placement Analyzer' },
-      { to: '/student/resume-studio', label: 'Resume Studio' },
-      { to: '/student/profile', label: 'Profile' },
-    ];
-  }, [role]);
+  }, [theme]);
 
   useEffect(() => {
     void triggerRealtimeRefresh();
-    const timer = setInterval(() => {
-      void triggerRealtimeRefresh();
-    }, 25000);
-
-    return () => clearInterval(timer);
   }, [triggerRealtimeRefresh]);
 
   return (
-    <div className='pf-shell-bg flex min-h-screen bg-transparent'>
-      <Sidebar role={role} />
-      <div className='flex min-w-0 flex-1 flex-col'>
-        <Topbar
-          role={role}
-          auth={auth}
-          dataMode={dataMode}
-          lastRefreshedAt={lastRefreshedAt}
-          onModeChange={setDataMode}
-          onRefresh={triggerRealtimeRefresh}
-          onMenuToggle={() => setIsMobileMenuOpen((value) => !value)}
-        />
-        <main className='flex-1'>
-          <Outlet />
-        </main>
-      </div>
+    <div className='pf-shell-bg min-h-screen text-[var(--pf-text)]'>
+      <Topbar
+        role={role}
+        auth={auth}
+        lastRefreshedAt={lastRefreshedAt}
+        onRefresh={triggerRealtimeRefresh}
+        onMenuToggle={() => setIsMobileMenuOpen((value) => !value)}
+        theme={theme}
+        onThemeToggle={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
+      />
+
+      <main className='min-h-[calc(100vh-96px)]'>
+        <Outlet />
+      </main>
 
       {isMobileMenuOpen ? (
-        <div className='fixed inset-0 z-40 lg:hidden'>
+        <div className='fixed inset-0 z-50 lg:hidden'>
           <button
             type='button'
             onClick={() => setIsMobileMenuOpen(false)}
-            className='absolute inset-0 bg-slate-900/35 backdrop-blur-[1px]'
-            aria-label='Close menu overlay'
+            className='absolute inset-0 bg-slate-950/30 backdrop-blur-sm'
+            aria-label='Close menu'
           />
 
-          <aside className='absolute left-0 top-0 h-full w-[86%] max-w-[320px] border-r border-slate-200 bg-white p-4 shadow-2xl'>
-            <div className='mb-4 flex items-center justify-between'>
+          <div className='absolute left-4 right-4 top-4 rounded-[28px] border border-[var(--pf-border)] bg-[var(--pf-surface-strong)] p-4 shadow-[var(--pf-shadow)] backdrop-blur-2xl'>
+            <div className='mb-3 flex items-center justify-between'>
               <div>
-                <p className='text-sm font-semibold text-slate-900'>Explore Features</p>
-                <p className='text-xs text-slate-500'>Quick sandwich menu access</p>
+                <p className='text-sm font-semibold text-[var(--pf-text)]'>Placify</p>
+                <p className='text-xs text-[var(--pf-muted)]'>Choose a page</p>
               </div>
               <button
                 type='button'
                 onClick={() => setIsMobileMenuOpen(false)}
-                className='inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600'
-                title='Close menu'
+                className='rounded-xl border border-[var(--pf-border)] px-3 py-1.5 text-sm text-[var(--pf-muted)]'
               >
-                <X className='h-4 w-4' />
+                Close
               </button>
             </div>
 
-            <nav className='space-y-1.5'>
+            <nav className='grid gap-2'>
               {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -97,10 +85,10 @@ export default function AppShell() {
                     to={item.to}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                      `flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold transition ${
                         isActive
-                          ? 'bg-teal-50 text-teal-800 shadow-[inset_0_0_0_1px_rgba(13,148,136,0.25)]'
-                          : 'text-slate-700 hover:bg-slate-100'
+                          ? 'bg-sky-100 text-sky-700 dark:bg-sky-400/15 dark:text-sky-200'
+                          : 'text-slate-600 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/10'
                       }`
                     }
                   >
@@ -110,26 +98,7 @@ export default function AppShell() {
                 );
               })}
             </nav>
-
-            <div className='mt-5 rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50 to-sky-50 p-3'>
-              <p className='flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500'>
-                <Sparkles className='h-3.5 w-3.5 text-teal-700' />
-                New Features
-              </p>
-              <div className='mt-2 space-y-1'>
-                {featuredExploreLinks.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className='block rounded-lg px-2 py-1.5 text-sm text-slate-700 transition hover:bg-white hover:text-slate-900'
-                  >
-                    {item.label}
-                  </NavLink>
-                ))}
-              </div>
-            </div>
-          </aside>
+          </div>
         </div>
       ) : null}
     </div>
