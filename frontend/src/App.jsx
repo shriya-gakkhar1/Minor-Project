@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './layout/AppShell';
 import Skeleton from './components/ui/Skeleton';
@@ -12,10 +12,11 @@ const LandingPage = lazy(() => import('./pages/LandingPage'));
 const MigrationPage = lazy(() => import('./pages/MigrationPage'));
 const MockInterviewPage = lazy(() => import('./pages/MockInterviewPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
-const ResumeStudioPage = lazy(() => import('./pages/ResumeStudioPage'));
 const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const StudentOpportunitiesPage = lazy(() => import('./pages/StudentOpportunitiesPage'));
 const StudentProfile = lazy(() => import('./pages/StudentProfile'));
 const StudentsPage = lazy(() => import('./pages/StudentsPage'));
+const TpoPredictionPage = lazy(() => import('./pages/TpoPredictionPage'));
 
 function AuthGuard({ children }) {
   const auth = usePlacementStore((state) => state.auth);
@@ -53,6 +54,14 @@ function PublicHome() {
 }
 
 export default function App() {
+  useEffect(() => {
+    try {
+      document.documentElement.classList.toggle('dark', localStorage.getItem('placify-theme') === 'dark');
+    } catch {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
   return (
     <Suspense fallback={<div className='p-6'><Skeleton className='h-16 w-full' /></div>}>
       <Routes>
@@ -72,10 +81,10 @@ export default function App() {
           <Route path="/migration" element={<Navigate to='/tpo/ingest' replace />} />
           <Route path="/add-company" element={<Navigate to='/tpo/drives' replace />} />
           <Route path="/reports" element={<Navigate to='/tpo/reports' replace />} />
-          <Route path="/insights-lab" element={<Navigate to='/tpo/dashboard' replace />} />
-          <Route path="/campus-predictor" element={<Navigate to='/tpo/dashboard' replace />} />
+          <Route path="/insights-lab" element={<Navigate to='/tpo/prediction' replace />} />
+          <Route path="/campus-predictor" element={<Navigate to='/tpo/prediction' replace />} />
           <Route path="/student-predictor" element={<Navigate to='/student/dashboard' replace />} />
-          <Route path="/resume-studio" element={<Navigate to='/student/resume' replace />} />
+          <Route path="/resume-studio" element={<Navigate to='/student/profile' replace />} />
           <Route path="/mock-interview" element={<Navigate to='/student/mock-interview' replace />} />
 
           <Route
@@ -98,6 +107,18 @@ export default function App() {
             path="/tpo/reports"
             element={<AdminOnly><ReportsPage /></AdminOnly>}
           />
+          <Route
+            path="/tpo/prediction"
+            element={<AdminOnly><TpoPredictionPage /></AdminOnly>}
+          />
+          <Route
+            path="/tpo/insights"
+            element={<Navigate to='/tpo/prediction' replace />}
+          />
+          <Route
+            path="/tpo/campus-predictor"
+            element={<Navigate to='/tpo/prediction' replace />}
+          />
 
           <Route path="/student" element={<Navigate to='/student/dashboard' replace />} />
           <Route
@@ -106,11 +127,11 @@ export default function App() {
           />
           <Route
             path="/student/opportunities"
-            element={<StudentOnly><StudentDashboard /></StudentOnly>}
+            element={<StudentOnly><StudentOpportunitiesPage /></StudentOnly>}
           />
           <Route
             path="/student/resume"
-            element={<StudentOnly><ResumeStudioPage /></StudentOnly>}
+            element={<Navigate to='/student/profile' replace />}
           />
           <Route
             path="/student/profile"
@@ -122,7 +143,7 @@ export default function App() {
           />
           <Route
             path="/student/resume-studio"
-            element={<Navigate to='/student/resume' replace />}
+            element={<Navigate to='/student/profile' replace />}
           />
           <Route
             path="/student/mock-interview"

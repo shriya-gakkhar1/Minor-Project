@@ -14,9 +14,11 @@ import {
   Square,
   Video,
   VideoOff,
+  Volume2,
+  VolumeX,
   Zap,
 } from 'lucide-react';
-import { createElement, useEffect, useMemo, useRef, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import Input from '../components/Input';
@@ -104,6 +106,15 @@ export default function MockInterviewPage() {
   const [result, setResult] = useState(null);
   const [source, setSource] = useState('not-run');
   const [startedAt, setStartedAt] = useState(null);
+  const [interviewError, setInterviewError] = useState('');
+  const [voiceEnabled, setVoiceEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('placify-mock-voice') !== 'off';
+    } catch {
+      return true;
+    }
+  });
+  const [speaking, setSpeaking] = useState(false);
 
   const profile = useMemo(() => {
     const mergedSkills = [...new Set([...(baseProfile.skills || []), ...(resumeSignals?.skills || []), ...(resumeSignals?.technologies || [])])];
@@ -126,6 +137,7 @@ export default function MockInterviewPage() {
     return () => {
       streamRef.current?.getTracks?.().forEach((track) => track.stop());
       recognitionRef.current?.stop?.();
+      window.speechSynthesis?.cancel?.();
     };
   }, []);
 
@@ -134,6 +146,48 @@ export default function MockInterviewPage() {
       videoRef.current.srcObject = streamRef.current;
     }
   }, [cameraOn, phase]);
+
+  const speakQuestion = useCallback((text) => {
+    const nextText = text || activeQuestion?.question;
+    if (!nextText || typeof window === 'undefined' || !window.speechSynthesis) {
+      setSpeaking(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(nextText);
+    utterance.lang = 'en-IN';
+    utterance.rate = 1.08;
+    utterance.pitch = 1;
+    utterance.onstart = () => setSpeaking(true);
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  }, [activeQuestion]);
+
+  useEffect(() => {
+    if (phase !== 'interview' || !activeQuestion || !voiceEnabled) return undefined;
+    speakQuestion(activeQuestion.question);
+    return () => window.speechSynthesis?.cancel?.();
+  }, [activeQuestion, phase, speakQuestion, voiceEnabled]);
+
+  const toggleVoice = () => {
+    setVoiceEnabled((current) => {
+      const next = !current;
+      try {
+        localStorage.setItem('placify-mock-voice', next ? 'on' : 'off');
+      } catch {
+        // Voice preference is optional.
+      }
+      if (!next) {
+        window.speechSynthesis?.cancel?.();
+        setSpeaking(false);
+      } else if (activeQuestion?.question) {
+        speakQuestion(activeQuestion.question);
+      }
+      return next;
+    });
+  };
 
   const handleResumeUpload = async (file) => {
     if (!file) return;
@@ -202,22 +256,28 @@ export default function MockInterviewPage() {
   const beginInterview = async () => {
     setLoadingQuestions(true);
     setResult(null);
-    const response = await generateInterviewQuestions({
-      role,
-      profile,
-      focusAreas: ['Resume', 'Projects', 'DSA', 'Communication', 'Behavioral'],
-      jobDescription,
-      apiKey,
-    });
-    setQuestions(response.questions);
-    setSource(response.source || 'backend');
-    setActiveIndex(0);
-    setAnswers([]);
-    setDraft('');
-    setTranscript('');
-    setStartedAt(Date.now());
-    setPhase('interview');
-    setLoadingQuestions(false);
+    setInterviewError('');
+    try {
+      const response = await generateInterviewQuestions({
+        role,
+        profile,
+        focusAreas: ['Resume', 'Projects', 'DSA', 'Communication', 'Behavioral'],
+        jobDescription,
+        apiKey,
+      });
+      setQuestions(response.questions);
+      setSource(response.source || 'backend');
+      setActiveIndex(0);
+      setAnswers([]);
+      setDraft('');
+      setTranscript('');
+      setStartedAt(Date.now());
+      setPhase('interview');
+    } catch (error) {
+      setInterviewError(error.message || 'Could not start interview. Local fallback should recover on retry.');
+    } finally {
+      setLoadingQuestions(false);
+    }
   };
 
   const saveAnswerAndNext = () => {
@@ -240,7 +300,10 @@ export default function MockInterviewPage() {
 
   const finishInterview = async () => {
     stopRecognition();
+    window.speechSynthesis?.cancel?.();
+    setSpeaking(false);
     setEvaluating(true);
+    setInterviewError('');
     const mergedAnswers = [...answers];
     if (activeQuestion && draft.trim()) {
       mergedAnswers[activeIndex] = {
@@ -250,19 +313,24 @@ export default function MockInterviewPage() {
         timestamp: new Date().toISOString(),
       };
     }
-    const response = await evaluateInterview({
-      role,
-      profile,
-      answers: mergedAnswers.filter(Boolean),
-      jobDescription,
-      apiKey,
-      durationSeconds: startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0,
-    });
-    setAnswers(mergedAnswers);
-    setResult(response);
-    setSource(response.source || source);
-    setPhase('result');
-    setEvaluating(false);
+    try {
+      const response = await evaluateInterview({
+        role,
+        profile,
+        answers: mergedAnswers.filter(Boolean),
+        jobDescription,
+        apiKey,
+        durationSeconds: startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0,
+      });
+      setAnswers(mergedAnswers);
+      setResult(response);
+      setSource(response.source || source);
+      setPhase('result');
+    } catch (error) {
+      setInterviewError(error.message || 'Could not evaluate interview. Please retry.');
+    } finally {
+      setEvaluating(false);
+    }
   };
 
   return (
@@ -403,6 +471,7 @@ export default function MockInterviewPage() {
                 {loadingQuestions ? <Loader2 className='h-4 w-4 animate-spin' /> : <Play className='h-4 w-4' />}
                 Start Interview
               </Button>
+              {interviewError ? <p className='rounded-2xl border border-rose-300/25 bg-rose-300/10 px-4 py-3 text-sm text-rose-100'>{interviewError}</p> : null}
             </div>
           </div>
         </section>
@@ -436,6 +505,17 @@ export default function MockInterviewPage() {
               <Button variant={listening ? 'danger' : 'secondary'} onClick={listening ? stopRecognition : startRecognition}>
                 {listening ? <Square className='h-4 w-4' /> : <Mic className='h-4 w-4' />}
                 {listening ? 'Stop transcript' : 'Start transcript'}
+              </Button>
+              <Button variant='secondary' onClick={toggleVoice}>
+                {voiceEnabled ? <Volume2 className='h-4 w-4' /> : <VolumeX className='h-4 w-4' />}
+                {speaking ? 'Speaking...' : voiceEnabled ? 'Voice on' : 'Voice off'}
+              </Button>
+            </div>
+
+            <div className='grid grid-cols-2 gap-3'>
+              <Button variant='secondary' onClick={() => speakQuestion()} disabled={!activeQuestion}>
+                <Volume2 className='h-4 w-4' />
+                Replay question
               </Button>
               <Button variant='secondary' onClick={finishInterview} disabled={evaluating}>
                 {evaluating ? <Loader2 className='h-4 w-4 animate-spin' /> : <Send className='h-4 w-4' />}

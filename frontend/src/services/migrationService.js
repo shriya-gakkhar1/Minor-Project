@@ -200,6 +200,7 @@ export function normalizeMigrationRows(rows) {
   const studentMap = new Map();
   const companyMap = new Map();
   const applications = [];
+  let duplicateCount = 0;
 
   rows.forEach((row, index) => {
     const name =
@@ -253,6 +254,8 @@ export function normalizeMigrationRows(rows) {
           resumeUploaded: boolish(resumeUploadedRaw) || resumeScore > 0,
           shortlistedStatus,
         });
+      } else {
+        duplicateCount += 1;
       }
       student = studentMap.get(studentKey);
     }
@@ -307,6 +310,7 @@ export function normalizeMigrationRows(rows) {
     companies,
     applications,
     errors,
+    duplicateCount,
   };
 }
 

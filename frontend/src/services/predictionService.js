@@ -294,6 +294,8 @@ export async function parseResumeSignals(file) {
       certifications: Array.isArray(data.certifications) ? data.certifications : [],
       github: data.github || '',
       linkedin: data.linkedin || '',
+      codingProfiles: Array.isArray(data.codingProfiles) ? data.codingProfiles : [],
+      links: Array.isArray(data.links) ? data.links : [],
       resumeScore: Number(data.resumeScore || 0),
       atsScore: Number(data.atsScore || 0),
       keywordScore: Number(data.keywordScore || 0),

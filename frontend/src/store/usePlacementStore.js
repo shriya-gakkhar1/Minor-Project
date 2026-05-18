@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { createApplication, listApplications, updateApplicationStatus } from '../services/applicationService';
 import { getSession, loginAs } from '../services/authService';
-import { createCompany, listCompanies } from '../services/companyService';
+import { createCompany, deleteCompany, duplicateCompany, listCompanies, updateCompany } from '../services/companyService';
 import { getDataMode, hydrateFromOnline } from '../services/dbService';
 import { importMigrationData, normalizeMigrationRows } from '../services/migrationService';
 import { setMode } from '../services/modeService';
-import { listStudents, enrichStudentsWithPlacement } from '../services/studentService';
+import { listStudents, enrichStudentsWithPlacement, updateStudentProfile as persistStudentProfile } from '../services/studentService';
 
 function sanitizeRecords(list) {
   if (!Array.isArray(list)) return [];
@@ -57,6 +57,7 @@ export const usePlacementStore = create((set, get) => ({
   migrationPreviewRows: [],
   migrationSource: null,
   migrationErrors: [],
+  migrationStats: null,
   campusPrediction: null,
   studentPrediction: null,
   studentSkillSuggestions: [],
@@ -101,6 +102,30 @@ export const usePlacementStore = create((set, get) => ({
     return result;
   },
 
+  updateCompany: (companyId, payload) => {
+    const result = updateCompany(companyId, payload);
+    if (result.ok) {
+      get().refreshData();
+    }
+    return result;
+  },
+
+  deleteCompany: (companyId) => {
+    const result = deleteCompany(companyId);
+    if (result.ok) {
+      get().refreshData();
+    }
+    return result;
+  },
+
+  duplicateCompany: (companyId) => {
+    const result = duplicateCompany(companyId);
+    if (result.ok) {
+      get().refreshData();
+    }
+    return result;
+  },
+
   applyToCompany: (companyId) => {
     const state = get();
     if (!state.currentStudentId) {
@@ -123,6 +148,27 @@ export const usePlacementStore = create((set, get) => ({
     return result;
   },
 
+  updateStudentProfile: (studentId, updates) => {
+    const result = persistStudentProfile(studentId, updates);
+    if (result.ok) {
+      get().refreshData();
+    }
+    return result;
+  },
+
+  updateCurrentStudentProfile: (updates) => {
+    const state = get();
+    if (!state.currentStudentId) {
+      return { ok: false, error: 'No student selected in session.' };
+    }
+
+    const result = persistStudentProfile(state.currentStudentId, updates);
+    if (result.ok) {
+      get().refreshData();
+    }
+    return result;
+  },
+
   importMigrationData: ({ students, companies, previewRows, source }) => {
     const normalized = normalizeMigrationRows(
       (previewRows || []).length ? previewRows : students.map((student) => ({ ...student })),
@@ -138,6 +184,14 @@ export const usePlacementStore = create((set, get) => ({
       migrationPreviewRows: previewRows || [],
       migrationSource: source || null,
       migrationErrors: normalized.errors || [],
+      migrationStats: {
+        totalRows: (previewRows || []).length || normalized.students.length,
+        students: ((students || []).length ? students : normalized.students).length,
+        companies: ((companies || []).length ? companies : normalized.companies).length,
+        applications: normalized.applications.length,
+        duplicates: normalized.duplicateCount || 0,
+        committedAt: new Date().toISOString(),
+      },
     });
     get().refreshData();
   },
@@ -151,9 +205,17 @@ export const usePlacementStore = create((set, get) => ({
     });
 
     set({
-      migrationPreviewRows: (rows || []).slice(0, 10),
+      migrationPreviewRows: rows || [],
       migrationSource: source || null,
       migrationErrors: normalized.errors,
+      migrationStats: {
+        totalRows: (rows || []).length,
+        students: normalized.students.length,
+        companies: normalized.companies.length,
+        applications: normalized.applications.length,
+        duplicates: normalized.duplicateCount || 0,
+        committedAt: new Date().toISOString(),
+      },
     });
     get().refreshData();
     return normalized;
@@ -170,5 +232,5 @@ export const usePlacementStore = create((set, get) => ({
     studentSkillSuggestions: [],
   }),
 
-  clearMigrationPreview: () => set({ migrationPreviewRows: [], migrationSource: null, migrationErrors: [] }),
+  clearMigrationPreview: () => set({ migrationPreviewRows: [], migrationSource: null, migrationErrors: [], migrationStats: null }),
 }));

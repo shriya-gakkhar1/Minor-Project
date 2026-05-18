@@ -1,5 +1,3 @@
-const { getSheetData } = require('../services/googleSheetsService');
-
 exports.getPlacements = (req, res) => {
   res.json([
     {

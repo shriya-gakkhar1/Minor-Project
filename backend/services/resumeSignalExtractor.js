@@ -45,7 +45,8 @@ const SKILL_TERMS = [
   'python', 'java', 'javascript', 'typescript', 'react', 'node.js', 'express', 'sql', 'dbms', 'mongodb',
   'postgresql', 'machine learning', 'scikit-learn', 'tensorflow', 'pytorch', 'aws', 'azure', 'gcp', 'docker',
   'kubernetes', 'git', 'linux', 'html', 'css', 'tailwind', 'firebase', 'supabase', 'power bi', 'excel',
-  'data structures', 'algorithms',
+  'data structures', 'algorithms', 'api', 'rest api', 'next.js', 'fastapi', 'flask', 'spring boot', 'redis',
+  'prisma', 'postgres', 'react native', 'figma', 'system design',
 ];
 
 const CERT_TERMS = ['aws certified', 'azure', 'nptel', 'coursera', 'google data analytics', 'udemy', 'certification'];
@@ -73,9 +74,24 @@ function extractTerms(text, terms) {
 
 function extractLinks(text) {
   const urls = String(text || '').match(/https?:\/\/[^\s)]+/gi) || [];
+  const codingProfiles = urls
+    .filter((url) => /leetcode|codechef|geeksforgeeks|hackerrank/i.test(url))
+    .map((url) => {
+      const lower = url.toLowerCase();
+      const platform = lower.includes('leetcode')
+        ? 'LeetCode'
+        : lower.includes('codechef')
+          ? 'CodeChef'
+          : lower.includes('geeksforgeeks')
+            ? 'GeeksforGeeks'
+            : 'HackerRank';
+      return { platform, url };
+    });
+
   return {
     github: urls.find((url) => url.toLowerCase().includes('github.com')) || '',
     linkedin: urls.find((url) => url.toLowerCase().includes('linkedin.com')) || '',
+    codingProfiles,
     links: urls.slice(0, 8),
   };
 }
@@ -183,6 +199,7 @@ function extractResumeSignalsFromText(text) {
       achievements: hasAny(text, ['winner', 'rank', 'award', 'hackathon', 'finalist']) ? ['Achievement signals detected'] : [],
       github: links.github,
       linkedin: links.linkedin,
+      codingProfiles: links.codingProfiles,
       links: links.links,
       internships,
       no_of_projects,

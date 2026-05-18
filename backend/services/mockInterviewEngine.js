@@ -113,7 +113,39 @@ async function callGemini(prompt, apiKey) {
   const payload = await response.json();
   const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) return null;
-  return JSON.parse(text);
+  return parseGeminiJson(text);
+}
+
+function parseGeminiJson(text) {
+  const raw = String(text || '').trim();
+  const stripped = raw
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+
+  try {
+    return JSON.parse(stripped);
+  } catch {
+    const start = stripped.indexOf('{');
+    const end = stripped.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      return JSON.parse(stripped.slice(start, end + 1));
+    }
+    throw new Error('Gemini did not return valid JSON.');
+  }
+}
+
+function normalizeQuestions(questions = []) {
+  return questions
+    .filter((item) => item && typeof item === 'object' && item.question)
+    .slice(0, 7)
+    .map((item, index) => ({
+      id: String(item.id || `q${index + 1}`),
+      type: String(item.type || 'Technical'),
+      question: String(item.question || '').trim(),
+      expectedSignals: Array.isArray(item.expectedSignals) ? item.expectedSignals.slice(0, 4).map(String) : [],
+    }));
 }
 
 async function generateQuestionsWithGemini(context) {
@@ -143,8 +175,9 @@ Return only JSON:
 Create exactly 7 questions.`;
 
   const result = await callGemini(prompt, context.apiKey);
-  if (!Array.isArray(result?.questions)) return null;
-  return { questions: result.questions, source: 'gemini' };
+  const questions = normalizeQuestions(result?.questions);
+  if (!questions.length) return null;
+  return { questions, source: 'gemini' };
 }
 
 async function evaluateWithGemini(context) {

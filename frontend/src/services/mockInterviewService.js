@@ -51,11 +51,27 @@ const fallbackQuestions = [
   },
 ];
 
+function sanitizeQuestions(questions) {
+  const normalized = Array.isArray(questions)
+    ? questions
+      .filter((item) => item && item.question)
+      .slice(0, 7)
+      .map((item, index) => ({
+        id: String(item.id || `q${index + 1}`),
+        type: String(item.type || 'Technical'),
+        question: String(item.question || '').trim(),
+        expectedSignals: Array.isArray(item.expectedSignals) ? item.expectedSignals.slice(0, 4) : [],
+      }))
+    : [];
+
+  return normalized.length ? normalized : fallbackQuestions;
+}
+
 export async function generateInterviewQuestions(payload) {
   try {
     const { data } = await api.post('/questions', payload);
     return {
-      questions: Array.isArray(data.questions) ? data.questions : fallbackQuestions,
+      questions: sanitizeQuestions(data.questions),
       source: data.source || 'backend',
     };
   } catch {

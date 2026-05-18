@@ -7,12 +7,12 @@ import { getNavItemsForRole } from './navigationConfig';
 const pageTitles = {
   '/tpo/dashboard': 'Placement Overview',
   '/tpo/ingest': 'Import Student Data',
-  '/tpo/drives': 'Companies',
+  '/tpo/drives': 'Drives',
   '/tpo/students': 'Students',
+  '/tpo/prediction': 'Prediction',
   '/tpo/reports': 'Reports',
   '/student/dashboard': 'My Dashboard',
   '/student/opportunities': 'Opportunities',
-  '/student/resume': 'Resume',
   '/student/mock-interview': 'Mock Interview',
   '/student/profile': 'Profile',
 };
@@ -48,6 +48,7 @@ export default function Topbar({ role, auth, lastRefreshedAt, onRefresh, onMenuT
               <NavLink
                 key={item.to}
                 to={item.to}
+                end
                 className={({ isActive }) =>
                   `inline-flex items-center gap-2 rounded-2xl px-3.5 py-2 text-sm font-semibold transition ${
                     isActive

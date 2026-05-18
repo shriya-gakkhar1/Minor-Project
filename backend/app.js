@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const authRoutes = require('./routes/auth');
+const driveRoutes = require('./routes/driveRoutes');
 const ingestRoutes = require('./routes/ingestRoutes');
 const intelligenceRoutes = require('./routes/intelligenceRoutes');
 const interviewRoutes = require('./routes/interviewRoutes');
@@ -37,6 +38,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/drives', driveRoutes);
 app.use('/api/ingest', ingestRoutes);
 app.use('/api/intelligence', intelligenceRoutes);
 app.use('/api/resume', resumeRoutes);

@@ -93,6 +93,8 @@ function predictPlacement({ student = {}, job = {} }) {
   ].filter(Boolean);
 
   return {
+    probability: placementProbability,
+    riskCategory: placementProbability >= 72 ? 'High Chance' : placementProbability >= 46 ? 'Medium' : 'At Risk',
     matchScore: roleCompatibilityScore,
     hiringProbability: placementProbability,
     ruleScore,
@@ -101,6 +103,7 @@ function predictPlacement({ student = {}, job = {} }) {
     roleCompatibilityScore,
     readinessScore: Math.round((ruleScore + roleCompatibilityScore) / 2),
     breakdown,
+    scoreBreakdown: breakdown,
     missingSkills,
     missingPreferred,
     weakAreas,
@@ -108,10 +111,38 @@ function predictPlacement({ student = {}, job = {} }) {
     suggestedImprovements: suggestions,
     explanations,
     confidence: Math.round(clamp(62 + skills.length * 2 + projects * 3 + internships * 4, 52, 92)),
-    modelUsed: 'random-forest-tabular-assisted-v1',
+    modelUsed: 'rules-fallback-v1',
+  };
+}
+
+function buildPredictionSummary() {
+  return {
+    activeModel: 'rules-fallback-v1',
+    preferredModel: 'catboost-tabular-v1',
+    catBoost: {
+      provider: 'CatBoost (Yandex)',
+      status: 'optional',
+      reason: 'Use the Python ML API when CatBoost artifacts are available; otherwise rules fallback keeps demo predictions working.',
+    },
+    features: [
+      'CGPA',
+      'attendance',
+      'activeBacklogs',
+      'branch',
+      'ATS score',
+      'aptitude score',
+      'communication score',
+      'projects',
+      'internships',
+      'skills count',
+      'applications count',
+    ],
+    explanation:
+      'Placify combines tabular ML readiness with transparent weighted scoring so every probability can be explained in viva.',
   };
 }
 
 module.exports = {
+  buildPredictionSummary,
   predictPlacement,
 };

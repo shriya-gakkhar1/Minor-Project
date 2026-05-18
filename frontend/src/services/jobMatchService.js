@@ -271,8 +271,8 @@ function scoreEngagement(profile) {
 }
 
 function estimateMlPrediction(profile, job, breakdown, ruleScore) {
-  // Deterministic tabular ensemble approximation for demo use.
-  // It behaves like a Random Forest summary without hiding the weighted inputs.
+  // Deterministic CatBoost-style fallback for demo use.
+  // The Python ML service can replace this, but this path keeps predictions explainable and reliable.
   const features = [
     breakdown.skills.score,
     breakdown.academics.score,
@@ -299,7 +299,7 @@ function estimateMlPrediction(profile, job, breakdown, ruleScore) {
     placementProbability,
     roleCompatibilityScore,
     confidence,
-    modelUsed: 'random-forest-tabular-assisted-v1',
+    modelUsed: 'rules-fallback-v1',
   };
 }
 

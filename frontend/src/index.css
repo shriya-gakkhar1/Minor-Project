@@ -9,6 +9,7 @@
   --pf-surface: rgba(255, 255, 255, 0.78);
   --pf-surface-strong: rgba(255, 255, 255, 0.92);
   --pf-surface-soft: rgba(241, 247, 252, 0.78);
+  --pf-surface-raised: rgba(255, 255, 255, 0.86);
   --pf-text: #0f172a;
   --pf-muted: #64748b;
   --pf-border: rgba(15, 23, 42, 0.09);
@@ -21,6 +22,9 @@
   --pf-success: #059669;
   --pf-warning: #d97706;
   --pf-shadow: 0 24px 70px rgba(15, 23, 42, 0.1);
+  --pf-glow-cyan: rgba(14, 165, 233, 0.18);
+  --pf-glow-teal: rgba(20, 184, 166, 0.16);
+  --pf-grid-line: rgba(15, 23, 42, 0.042);
   --color-surface: var(--pf-surface);
   --color-border: var(--pf-border);
   --color-text: var(--pf-text);
@@ -32,23 +36,27 @@
 }
 
 .dark {
-  --pf-bg: #07111f;
-  --pf-bg-2: #0b1526;
-  --pf-surface: rgba(12, 22, 39, 0.78);
-  --pf-surface-strong: rgba(12, 22, 39, 0.94);
-  --pf-surface-soft: rgba(18, 31, 53, 0.68);
-  --pf-text: #f8fafc;
-  --pf-muted: #9fb0c8;
-  --pf-border: rgba(148, 163, 184, 0.16);
-  --pf-border-strong: rgba(125, 211, 252, 0.24);
+  --pf-bg: #030712;
+  --pf-bg-2: #07111f;
+  --pf-surface: rgba(9, 17, 32, 0.76);
+  --pf-surface-strong: rgba(10, 18, 32, 0.94);
+  --pf-surface-soft: rgba(15, 27, 48, 0.72);
+  --pf-surface-raised: rgba(16, 28, 49, 0.86);
+  --pf-text: #f8fbff;
+  --pf-muted: #94a9c8;
+  --pf-border: rgba(134, 164, 211, 0.18);
+  --pf-border-strong: rgba(94, 234, 212, 0.32);
   --pf-accent: #38bdf8;
-  --pf-accent-soft: rgba(56, 189, 248, 0.12);
+  --pf-accent-soft: rgba(56, 189, 248, 0.14);
   --pf-secondary: #5eead4;
   --pf-highlight: #a78bfa;
   --pf-danger: #fb7185;
   --pf-success: #34d399;
   --pf-warning: #fbbf24;
-  --pf-shadow: 0 22px 80px rgba(0, 0, 0, 0.32);
+  --pf-shadow: 0 22px 90px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  --pf-glow-cyan: rgba(56, 189, 248, 0.24);
+  --pf-glow-teal: rgba(94, 234, 212, 0.18);
+  --pf-grid-line: rgba(148, 163, 184, 0.075);
 }
 
 * {
@@ -77,9 +85,10 @@ body {
 
 .dark body {
   background:
-    radial-gradient(circle at 18% -10%, rgba(20, 184, 166, 0.15), transparent 34rem),
-    radial-gradient(circle at 82% 2%, rgba(96, 165, 250, 0.13), transparent 30rem),
-    linear-gradient(180deg, rgba(3, 7, 18, 0.98), rgba(7, 17, 31, 0.98)),
+    radial-gradient(circle at 15% -12%, rgba(45, 212, 191, 0.18), transparent 34rem),
+    radial-gradient(circle at 82% 0%, rgba(59, 130, 246, 0.16), transparent 32rem),
+    radial-gradient(circle at 50% 105%, rgba(124, 58, 237, 0.12), transparent 38rem),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(3, 7, 18, 0.985) 46%, rgba(7, 17, 31, 0.98)),
     var(--pf-bg);
 }
 
@@ -155,7 +164,8 @@ textarea {
   position: relative;
   isolation: isolate;
   background:
-    linear-gradient(90deg, rgba(14, 165, 233, 0.08), transparent 32%),
+    radial-gradient(circle at 8% 8%, var(--pf-glow-cyan), transparent 24rem),
+    radial-gradient(circle at 94% 18%, var(--pf-glow-teal), transparent 26rem),
     linear-gradient(180deg, rgba(255, 255, 255, 0.62), transparent 28rem),
     var(--pf-bg);
 }
@@ -167,10 +177,22 @@ textarea {
   z-index: -1;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+    linear-gradient(var(--pf-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--pf-grid-line) 1px, transparent 1px);
   background-size: 44px 44px;
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent 74%);
+}
+
+.pf-shell-bg::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(110deg, transparent 0%, rgba(56, 189, 248, 0.055) 44%, transparent 56%),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.07), transparent 36rem);
+  opacity: 0.75;
 }
 
 .pf-float {
@@ -208,6 +230,61 @@ main > div {
 
 .pf-shell-bg .recharts-tooltip-wrapper {
   outline: none;
+}
+
+.pf-live-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(240, 249, 255, 0.66)),
+    var(--pf-surface-raised);
+}
+
+.dark .pf-live-card {
+  background:
+    linear-gradient(135deg, rgba(16, 29, 52, 0.92), rgba(7, 15, 29, 0.74)),
+    radial-gradient(circle at 15% 0%, rgba(56, 189, 248, 0.12), transparent 18rem),
+    radial-gradient(circle at 90% 10%, rgba(94, 234, 212, 0.08), transparent 17rem);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(148, 163, 184, 0.04) inset;
+}
+
+.pf-live-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.16), transparent),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 28%);
+  transform: translateX(-110%);
+  animation: data-scan 4.8s ease-in-out infinite;
+}
+
+.pf-market-grid {
+  background-image:
+    linear-gradient(var(--pf-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--pf-grid-line) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.pf-glow-line {
+  filter: drop-shadow(0 0 8px rgba(94, 234, 212, 0.34));
+}
+
+@keyframes data-scan {
+  0% {
+    transform: translateX(-115%);
+    opacity: 0;
+  }
+  18%,
+  54% {
+    opacity: 1;
+  }
+  82%,
+  100% {
+    transform: translateX(115%);
+    opacity: 0;
+  }
 }
 
 @keyframes manga-sweep {

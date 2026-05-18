@@ -23,6 +23,7 @@ Minor-Project-main/
   sample data/    Ready-to-use JECRC-style sample CSV/XLSX files
   ml/             Existing ML/demo assets from the original project
   notebooks/      Existing notebooks from the original project
+  ARCHITECTURE.md Detailed data model, API, and production migration notes
 ```
 
 ## Requirements
@@ -122,6 +123,37 @@ The login page is prefilled for the demo.
 5. Click `Commit data`.
 6. Go back to `Dashboard` and show the updated analytics.
 
+## TPO Drive Flow
+
+1. Login as TPO/Admin.
+2. Open `Companies`.
+3. Use the step-by-step opening builder.
+4. Add company details, eligibility rules, required skills, hiring rounds, deadline, openings, and resume formats.
+5. Review the live eligible-student and average-match estimate.
+6. Publish, save as draft, edit, duplicate, close, or delete openings.
+
+The backend also exposes demo-safe drive endpoints under `/api/drives` for list, create, update, duplicate, and delete operations.
+
+## Student Flow
+
+1. Login as Student.
+2. Open `My Dashboard`.
+3. Review placement readiness and match cards.
+4. Check missing skills, hiring probability, shortlist probability, and improvement suggestions.
+5. Quick apply to eligible drives.
+6. Search/filter opportunities, save openings, track upcoming deadlines, and open `Profile` or `Mock Interview` to improve readiness.
+
+## Unified Readiness Engine
+
+Placify AI now keeps prediction, resume parsing, and profile proof in one compact flow instead of scattered pages.
+
+- Frontend service: `frontend/src/services/readinessIntelligenceService.js`
+- Backend endpoint: `POST /api/match/readiness`
+- Inputs: student profile, active drives, applications, parsed resume signals, GitHub/LinkedIn/coding profile links.
+- Outputs: match percentage, selection probability, readiness score, resume strength, missing skills, weak areas, improvement lift, smart insights, and recommended actions.
+- Profile Intelligence stores resume signals directly inside the student profile, so uploaded resume data updates ATS score, skill heatmap, GitHub/LinkedIn/coding signals, and role match cards without a separate broken module.
+- The scoring is explainable and demo-safe: CatBoost-ready tabular prediction plus deterministic weighted fallback rules, not a fake black-box model.
+
 ## Sample Data
 
 Use these ready-made files:
@@ -187,6 +219,23 @@ Backend:
 cd backend
 npm start
 ```
+
+## API And Architecture Docs
+
+See:
+
+```text
+ARCHITECTURE.md
+```
+
+It includes:
+
+- Folder structure
+- Canonical student/drive/application schema
+- Prediction engine explanation
+- API endpoint summary
+- Environment variables
+- Production migration path
 
 ## Troubleshooting
 

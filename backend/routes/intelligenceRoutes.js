@@ -1,5 +1,6 @@
 const express = require('express');
 const { buildInstitutionalIntelligence } = require('../services/institutionalIntelligenceEngine');
+const { buildPredictionSummary } = require('../services/placementPredictionEngine');
 
 const router = express.Router();
 
@@ -16,6 +17,10 @@ function build(req, res) {
 }
 
 router.post('/ops', build);
+
+router.get('/prediction-summary', (req, res) => {
+  return res.json(buildPredictionSummary());
+});
 
 router.post('/eligibility', (req, res) => {
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];

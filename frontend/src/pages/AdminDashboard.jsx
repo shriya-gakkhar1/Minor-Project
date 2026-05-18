@@ -101,6 +101,69 @@ function ChartTooltip({ active, payload, label }) {
   );
 }
 
+function MarketSignal({ signal }) {
+  const positive = signal.tone === 'up';
+  return (
+    <button
+      type='button'
+      className='group rounded-3xl border border-[var(--pf-border)] bg-white/58 p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--pf-border-strong)] dark:bg-white/[0.04]'
+    >
+      <div className='flex items-start justify-between gap-3'>
+        <div>
+          <p className='text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]'>BRANCH</p>
+          <p className='mt-1 text-xl font-semibold text-[var(--pf-text)]'>{signal.name}</p>
+        </div>
+        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${positive ? 'bg-emerald-400/10 text-emerald-600 dark:text-emerald-200' : 'bg-rose-400/10 text-rose-600 dark:text-rose-200'}`}>
+          {positive ? '+' : ''}{signal.change}%
+        </span>
+      </div>
+      <div className='mt-4 flex items-end justify-between gap-3'>
+        <div>
+          <p className='text-3xl font-semibold text-[var(--pf-text)]'>{signal.confidence}</p>
+          <p className='text-xs text-[var(--pf-muted)]'>Placement confidence</p>
+        </div>
+        <Sparkline data={[28, 36 + signal.change, 44, signal.confidence * 0.72, signal.confidence]} positive={positive} />
+      </div>
+      <div className='mt-4 h-1.5 rounded-full bg-slate-200 dark:bg-white/10'>
+        <div className={`h-1.5 rounded-full ${positive ? 'bg-emerald-300' : 'bg-rose-300'}`} style={{ width: `${signal.demand}%` }} />
+      </div>
+    </button>
+  );
+}
+
+function Sparkline({ data, positive = true }) {
+  const values = data.length ? data : [0, 0];
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const points = values.map((value, index) => {
+    const x = (index / Math.max(1, values.length - 1)) * 120;
+    const y = 46 - ((value - min) / Math.max(1, max - min)) * 38;
+    return `${x},${y}`;
+  }).join(' ');
+  const lastY = points.split(' ').at(-1)?.split(',')[1] || 10;
+
+  return (
+    <svg viewBox='0 0 120 52' className='h-14 w-32 overflow-visible'>
+      <polyline points={points} fill='none' stroke={positive ? '#5eead4' : '#fb7185'} strokeWidth='3' strokeLinecap='round' strokeLinejoin='round' className='pf-glow-line' />
+      <circle cx='120' cy={lastY} r='3.5' fill={positive ? '#5eead4' : '#fb7185'} />
+    </svg>
+  );
+}
+
+function VelocityChip({ label, value, tone }) {
+  const tones = {
+    cyan: 'from-sky-400/18 to-cyan-300/10 text-sky-600 dark:text-sky-200',
+    violet: 'from-violet-400/18 to-indigo-300/10 text-violet-600 dark:text-violet-200',
+    rose: 'from-rose-400/18 to-pink-300/10 text-rose-600 dark:text-rose-200',
+  };
+  return (
+    <div className={`rounded-2xl border border-[var(--pf-border)] bg-gradient-to-br ${tones[tone]} p-3`}>
+      <p className='text-xs text-[var(--pf-muted)]'>{label}</p>
+      <p className='mt-1 text-2xl font-semibold text-[var(--pf-text)]'>{value}</p>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const students = usePlacementStore((state) => state.students);
@@ -108,6 +171,9 @@ export default function AdminDashboard() {
   const applications = usePlacementStore((state) => state.applicationViews);
   const studentRows = usePlacementStore((state) => state.studentPlacementRows);
   const migrationSource = usePlacementStore((state) => state.migrationSource);
+  const migrationPreviewRows = usePlacementStore((state) => state.migrationPreviewRows);
+  const migrationErrors = usePlacementStore((state) => state.migrationErrors);
+  const migrationStats = usePlacementStore((state) => state.migrationStats);
 
   const [branchFilter, setBranchFilter] = useState('All');
 
@@ -170,6 +236,38 @@ export default function AdminDashboard() {
       eligible: Math.max(12, Math.round((intelligence.eligibleCount / 6) * (index + 1))),
     }));
   }, [intelligence.eligibleCount, placed]);
+
+  const placementMomentum = useMemo(() => {
+    const readiness = intelligence.branches.length
+      ? Math.round(intelligence.branches.reduce((sum, branch) => sum + branch.avgAts + branch.eligible, 0) / (intelligence.branches.length * 2))
+      : 0;
+    const drivePressure = Math.min(100, activeDrives * 18 + applications.length * 4);
+    const riskDrag = total ? Math.round((intelligence.atRiskCount / total) * 100) : 0;
+    return Math.max(0, Math.min(100, Math.round(readiness * 0.48 + placementRate * 0.32 + drivePressure * 0.2 - riskDrag * 0.25)));
+  }, [activeDrives, applications.length, intelligence.atRiskCount, intelligence.branches, placementRate, total]);
+
+  const schemaConfidence = useMemo(() => {
+    const sample = studentRows[0] || students[0] || {};
+    const expected = ['name', 'branch', 'cgpa', 'attendance', 'activeBacklogs', 'status'];
+    const detected = expected.filter((key) => sample[key] !== undefined && sample[key] !== null && sample[key] !== '').length;
+    const errorPenalty = Math.min(28, (migrationErrors?.length || 0) * 7);
+    return Math.max(48, Math.min(99, Math.round(58 + detected * 7 - errorPenalty)));
+  }, [migrationErrors?.length, studentRows, students]);
+
+  const marketSignals = useMemo(() => {
+    return intelligence.branches.map((branch, index) => {
+      const placedBranch = studentRows.filter((student) => student.branch === branch.branch && placedIds.has(student.id)).length;
+      const confidence = Math.min(99, Math.round(branch.avgAts * 0.42 + branch.eligible * 0.38 + (placedBranch / Math.max(1, branch.students)) * 100 * 0.2));
+      const change = Math.round((confidence - 62 + index * 4) / 3);
+      return {
+        name: branch.branch,
+        confidence,
+        demand: Math.min(100, Math.round(confidence * 0.74 + activeDrives * 8)),
+        change,
+        tone: change >= 0 ? 'up' : 'down',
+      };
+    }).sort((a, b) => b.confidence - a.confidence);
+  }, [activeDrives, intelligence.branches, placedIds, studentRows]);
 
   const riskData = [
     { name: 'High Chance', value: Math.max(0, total - intelligence.atRiskCount - Math.round(total * 0.28)), color: '#34d399' },
@@ -258,6 +356,29 @@ export default function AdminDashboard() {
         </div>
       </section>
 
+      {total === 0 ? (
+        <section className='rounded-[28px] border border-dashed border-[var(--pf-border)] bg-[var(--pf-surface)] p-10 text-center shadow-[var(--pf-shadow)]'>
+          <div className='mx-auto mb-4 grid h-16 w-16 place-items-center rounded-3xl bg-gradient-to-br from-sky-400/20 to-teal-300/15'>
+            <DatabaseBackup className='h-8 w-8 text-sky-500' />
+          </div>
+          <h2 className='text-lg font-semibold text-[var(--pf-text)]'>No student data yet</h2>
+          <p className='mt-2 max-w-md mx-auto text-sm text-[var(--pf-muted)]'>
+            Import your placement data to unlock the full dashboard — eligibility analysis, risk queue, branch charts, and more.
+          </p>
+          <div className='mt-6 flex flex-wrap justify-center gap-3'>
+            <Button onClick={() => navigate('/tpo/ingest')}>
+              <DatabaseBackup className='h-4 w-4' />
+              Import Student Data
+            </Button>
+            <Button variant='secondary' onClick={() => navigate('/tpo/drives')}>
+              <BriefcaseBusiness className='h-4 w-4' />
+              Add Companies
+            </Button>
+          </div>
+          <p className='mt-4 text-xs text-[var(--pf-muted)]'>Supports Excel (.xlsx), CSV, and public Google Sheets</p>
+        </section>
+      ) : null}
+
       <section className='grid gap-4 md:grid-cols-2 xl:grid-cols-6'>
         <KpiCard label='Total Students' value={total} note='Current imported batch' icon={GraduationCap} tone='violet' />
         <KpiCard label='Eligible Students' value={intelligence.eligibleCount} note={`${intelligence.eligibilityRate}% of total`} icon={ShieldCheck} tone='blue' />
@@ -265,6 +386,75 @@ export default function AdminDashboard() {
         <KpiCard label='Avg Package' value={`${avgPackage} LPA`} note={`${activeDrives} active drives`} icon={BriefcaseBusiness} tone='cyan' />
         <KpiCard label='No Resume' value={intelligence.noResumeCount} note='Need resume upload' icon={FileSpreadsheet} tone='amber' />
         <KpiCard label='At Risk' value={intelligence.atRiskCount} note='Needs intervention' icon={AlertTriangle} tone='rose' />
+      </section>
+
+      <section className='grid gap-4 xl:grid-cols-[1.15fr_0.85fr]'>
+        <Panel
+          title='Placement Market'
+          subtitle='Branch readiness and hiring pressure shown like a live market.'
+          className='pf-live-card pf-market-grid'
+          action={<span className='rounded-full border border-teal-300/30 bg-teal-300/10 px-3 py-1 text-xs font-semibold text-teal-500 dark:text-teal-100'>Momentum {placementMomentum}%</span>}
+        >
+          <div className='grid gap-3 md:grid-cols-2'>
+            {marketSignals.slice(0, 6).map((signal) => (
+              <MarketSignal key={signal.name} signal={signal} />
+            ))}
+          </div>
+        </Panel>
+
+        <Panel
+          title='Hiring Velocity'
+          subtitle='How fast the current cycle is moving.'
+          className='pf-live-card'
+          action={<LineChart className='h-5 w-5 text-teal-400 pf-glow-line' />}
+        >
+          <div className='grid gap-4'>
+            <div className='rounded-3xl border border-[var(--pf-border)] bg-white/50 p-4 dark:bg-white/[0.035]'>
+              <div className='flex items-end justify-between gap-4'>
+                <div>
+                  <p className='text-xs uppercase tracking-[0.18em] text-[var(--pf-muted)]'>Cycle pulse</p>
+                  <p className='mt-2 text-5xl font-semibold text-[var(--pf-text)]'>{placementMomentum}%</p>
+                </div>
+                <Sparkline data={trend.map((item) => item.placed + item.eligible * 0.3)} />
+              </div>
+              <div className='mt-4 h-2 rounded-full bg-slate-200 dark:bg-white/10'>
+                <div className='h-2 rounded-full bg-gradient-to-r from-sky-400 via-teal-300 to-emerald-300 shadow-[0_0_18px_rgba(94,234,212,0.35)]' style={{ width: `${placementMomentum}%` }} />
+              </div>
+            </div>
+            <div className='grid gap-3 sm:grid-cols-3'>
+              <VelocityChip label='Active drives' value={activeDrives} tone='cyan' />
+              <VelocityChip label='Applicants' value={applications.length} tone='violet' />
+              <VelocityChip label='Risk drag' value={`${total ? Math.round((intelligence.atRiskCount / total) * 100) : 0}%`} tone='rose' />
+            </div>
+          </div>
+        </Panel>
+      </section>
+
+      <section className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
+        {[
+          { label: 'Rows Parsed', value: migrationStats?.totalRows || migrationPreviewRows?.length || total, desc: 'Latest import batch', color: 'from-sky-500/15 to-blue-500/10', border: 'border-sky-200/40', icon: FileSpreadsheet, path: '/tpo/ingest' },
+          { label: 'Students', value: total, desc: 'Clean records detected', color: 'from-violet-500/15 to-indigo-500/10', border: 'border-violet-200/40', icon: Users, path: '/tpo/students' },
+          { label: 'Companies', value: companies.length, desc: 'Drives available', color: 'from-teal-500/15 to-cyan-500/10', border: 'border-teal-200/40', icon: BriefcaseBusiness, path: '/tpo/drives' },
+          { label: 'Duplicates', value: migrationStats?.duplicates || migrationErrors?.filter((item) => String(item).toLowerCase().includes('duplicate')).length || 0, desc: 'Removed or flagged', color: 'from-amber-500/15 to-orange-500/10', border: 'border-amber-200/40', icon: AlertTriangle, path: '/tpo/ingest' },
+          { label: 'Schema', value: `${schemaConfidence}%`, desc: 'Mapping confidence', color: 'from-emerald-500/15 to-teal-500/10', border: 'border-emerald-200/40', icon: ShieldCheck, path: '/tpo/ingest' },
+          { label: 'Prediction', value: `${placementMomentum}%`, desc: 'Cycle momentum', color: 'from-rose-500/15 to-pink-500/10', border: 'border-rose-200/40', icon: LineChart, path: '/tpo/prediction' },
+        ].map((item) => (
+          <button
+            key={item.label}
+            type='button'
+            onClick={() => navigate(item.path)}
+            className={`group flex items-start gap-3 rounded-[22px] border ${item.border} bg-gradient-to-br ${item.color} p-4 text-left transition hover:-translate-y-0.5 hover:shadow-lg`}
+          >
+            <span className='grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/60 dark:bg-white/10'>
+              {createElement(item.icon, { className: 'h-5 w-5 text-[var(--pf-text)]' })}
+            </span>
+            <div>
+              <p className='text-sm font-semibold text-[var(--pf-text)]'>{item.label}</p>
+              <p className='mt-1 text-2xl font-semibold text-[var(--pf-text)]'>{item.value}</p>
+              <p className='mt-0.5 text-xs text-[var(--pf-muted)]'>{item.desc}</p>
+            </div>
+          </button>
+        ))}
       </section>
 
       <section className='grid gap-4 xl:grid-cols-[1.15fr_1fr_0.95fr]'>

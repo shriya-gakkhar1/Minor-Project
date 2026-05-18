@@ -241,7 +241,7 @@ function buildJsonResume({ profile, optimizedSummary, skills, experienceBullets,
     meta: {
       canonical: 'https://jsonresume.org/schema/',
       version: 'v1.0.0',
-      optimizedBy: 'Placify AI Resume Studio',
+      optimizedBy: 'Placify AI Profile Intelligence',
     },
   };
 }
