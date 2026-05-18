@@ -33,7 +33,7 @@ function getBranchLabel(company) {
   return branches.length ? branches.join(', ') : 'All';
 }
 
-function enrichDrive(company, student, applications) {
+function enrichDrive(company, student, applications, allApplications) {
   const branches = company.eligibleBranches?.length ? company.eligibleBranches : toList(company.branch || 'All');
   const normalizedBranches = branches.map((branch) => branch.toLowerCase());
   const studentBranch = String(student.branch || '').toLowerCase();
@@ -51,6 +51,7 @@ function enrichDrive(company, student, applications) {
     branch: getBranchLabel(company),
     eligible: branchMatch && cgpaMatch && attendanceMatch && backlogMatch,
     hasApplied: applications.some((application) => application.companyId === company.id),
+    applicantsCount: allApplications.filter((application) => application.companyId === company.id).length,
     eligibilityBlockers: [
       branchMatch ? null : 'Branch is not eligible',
       cgpaMatch ? null : `Needs CGPA ${minCgpa}+`,
@@ -89,8 +90,8 @@ export default function StudentOpportunitiesPage() {
     if (!currentStudent) return [];
     return companies
       .filter((company) => !['closed', 'archived', 'draft'].includes(String(company.status || 'Open').toLowerCase()))
-      .map((company) => enrichDrive(company, currentStudent, myApplications));
-  }, [companies, currentStudent, myApplications]);
+      .map((company) => enrichDrive(company, currentStudent, myApplications, applicationViews));
+  }, [applicationViews, companies, currentStudent, myApplications]);
 
   const intelligence = useMemo(
     () => currentStudent
@@ -270,7 +271,7 @@ export default function StudentOpportunitiesPage() {
                   {drive.eligible ? 'Eligible to apply' : 'Needs attention before applying'}
                 </p>
                 <p className='text-xs leading-5 text-[var(--pf-muted)]'>
-                  Branch: {getBranchLabel(drive)} · CGPA {drive.minCgpa ?? drive.eligibility ?? 0}+ · Deadline {drive.deadline || 'Not set'}
+                  Branch: {getBranchLabel(drive)} · CGPA {drive.minCgpa ?? drive.eligibility ?? 0}+ · {drive.applicantsCount} applicant{drive.applicantsCount === 1 ? '' : 's'} · Deadline {drive.deadline || 'Not set'}
                 </p>
                 <p className='text-xs leading-5 text-[var(--pf-muted)]'>
                   {drive.eligibilityBlockers.length ? drive.eligibilityBlockers.join(' · ') : drive.match.suggestedImprovements?.[0] || 'Your profile satisfies the main screening rules.'}

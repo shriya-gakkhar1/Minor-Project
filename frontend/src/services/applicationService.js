@@ -1,5 +1,6 @@
 import { getCompanyById } from './companyService';
 import { loadDb, makeId, saveDb } from './dbService';
+import { calculateJobMatch } from './jobMatchService';
 import { getStudentById } from './studentService';
 import { assertValidTransition } from './workflowService';
 
@@ -9,10 +10,21 @@ export function listApplications() {
 
 function isEligible(student, company) {
   if (!student || !company) return false;
-  const cgpaOk = Number(student.cgpa) >= Number(company.eligibility || 0);
-  const branchText = String(company.branch || 'All');
-  const branchOk = branchText === 'All' || branchText.toLowerCase().includes(String(student.branch || '').toLowerCase());
-  return cgpaOk && branchOk;
+  const status = String(company.status || 'Open').toLowerCase();
+  if (['closed', 'archived', 'draft'].includes(status)) return false;
+
+  const branches = Array.isArray(company.eligibleBranches)
+    ? company.eligibleBranches
+    : String(company.branch || 'All').split(/[,;/|]/).map((item) => item.trim()).filter(Boolean);
+  const normalizedBranches = branches.map((branch) => branch.toLowerCase());
+  const studentBranch = String(student.branch || '').toLowerCase();
+
+  const branchOk = normalizedBranches.includes('all') || normalizedBranches.includes(studentBranch);
+  const cgpaOk = Number(student.cgpa || 0) >= Number(company.minCgpa ?? company.eligibility ?? 0);
+  const attendanceOk = Number(student.attendance ?? 100) >= Number(company.minAttendance ?? 0);
+  const backlogOk = Number(student.activeBacklogs ?? 0) <= Number(company.maxBacklogs ?? 99);
+
+  return branchOk && cgpaOk && attendanceOk && backlogOk;
 }
 
 export function createApplication(studentId, companyId) {
@@ -40,7 +52,9 @@ export function createApplication(studentId, companyId) {
     studentId,
     companyId,
     status: 'Applied',
+    matchScore: calculateJobMatch(student, company).matchScore,
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 
   const nextDb = saveDb({ ...db, applications: [application, ...db.applications] });

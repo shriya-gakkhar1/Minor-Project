@@ -191,7 +191,7 @@ export default function AddCompanyPage() {
 
     const payload = {
       ...form,
-      status: statusOverride || form.status,
+      status: statusOverride || 'Open',
       branch: form.eligibleBranches,
       eligibleBranches: form.eligibleBranches,
       hiringRounds: form.hiringRounds,
@@ -202,7 +202,7 @@ export default function AddCompanyPage() {
       setError(result.error);
       return;
     }
-    setToast(statusOverride === 'Draft' ? 'Draft saved.' : editingId ? 'Opening updated.' : 'Opening published.');
+    setToast(statusOverride === 'Draft' ? 'Draft saved.' : editingId ? 'Opening published to students.' : 'Opening published to students.');
     resetForm();
   };
 
