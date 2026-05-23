@@ -1,4 +1,5 @@
 const express = require('express');
+const { predictWithMl } = require('../services/mlPredictionClient');
 const { predictPlacement } = require('../services/placementPredictionEngine');
 
 const router = express.Router();
@@ -30,11 +31,43 @@ router.post('/placement', (req, res) => {
   }));
 });
 
-router.post('/predict', (req, res) => {
-  const result = predictPlacement({
-    student: req.body?.student || {},
-    job: req.body?.drive || req.body?.job || {},
-  });
+router.post('/predict', async (req, res) => {
+  const student = req.body?.student || {};
+  const job = req.body?.drive || req.body?.job || {};
+  const result = predictPlacement({ student, job });
+
+  try {
+    const ml = await predictWithMl({
+      ...student,
+      applicationsCount: req.body?.datasetContext?.applicationsCount ?? student.applicationsCount,
+    });
+
+    return res.json({
+      probability: ml.probability,
+      shortlistProbability: ml.shortlist_probability,
+      riskCategory: ml.risk_category,
+      scoreBreakdown: {
+        ...result.scoreBreakdown,
+        mlAcademics: ml.score_breakdown?.academics,
+        mlAttendance: ml.score_breakdown?.attendance,
+        mlResume: ml.score_breakdown?.resume,
+        mlPerformance: ml.score_breakdown?.performance,
+        mlProof: ml.score_breakdown?.proof,
+        mlActivity: ml.score_breakdown?.activity,
+      },
+      explanations: ml.explanations?.length ? ml.explanations : result.explanations,
+      suggestions: ml.suggestions?.length ? ml.suggestions : result.suggestions,
+      missingSkills: result.missingSkills,
+      positiveFactors: (ml.explanations || result.explanations).filter((item) => /supports|improve|healthy|matches/i.test(item)),
+      negativeFactors: (ml.explanations || result.explanations).filter((item) => /missing|reduced|below|need|risk/i.test(item)),
+      modelUsed: ml.model_used || 'catboost-tabular-v1',
+      catboostAvailable: Boolean(ml.catboost_available),
+      fallbackReady: true,
+      datasetContext: req.body?.datasetContext || null,
+    });
+  } catch {
+    // Keep the demo reliable if the Python ML service is not running.
+  }
 
   return res.json({
     probability: result.placementProbability,

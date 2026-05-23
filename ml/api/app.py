@@ -92,19 +92,18 @@ summary = None
 
 def load_artifacts() -> None:
     global pipeline, catboost_model, metadata, summary
-    if pipeline is None:
-        if not MODEL_PATH.exists():
-            raise FileNotFoundError("Model pipeline not found. Train and export artifacts first.")
-        pipeline = joblib.load(MODEL_PATH)
-
     if catboost_model is None and CatBoostClassifier is not None and CATBOOST_PATH.exists():
         catboost_model = CatBoostClassifier()
         catboost_model.load_model(str(CATBOOST_PATH))
 
+    if pipeline is None and MODEL_PATH.exists():
+        pipeline = joblib.load(MODEL_PATH)
+
     if metadata is None:
-        if not META_PATH.exists():
-            raise FileNotFoundError("Metadata not found. Run the training notebook to export metadata.")
-        metadata = json.loads(META_PATH.read_text(encoding="utf-8"))
+        if META_PATH.exists():
+            metadata = json.loads(META_PATH.read_text(encoding="utf-8"))
+        else:
+            metadata = {}
 
     if summary is None:
         if SUMMARY_PATH.exists():
@@ -262,7 +261,7 @@ def predict_placement(profile: PlacementPredictionInput):
 
 @app.get("/insights/summary", response_model=InsightsSummary)
 def get_summary():
-    if pipeline is None or metadata is None:
+    if not metadata:
         raise HTTPException(status_code=503, detail="Artifacts are missing. Train the model first.")
 
     response = {
@@ -281,11 +280,28 @@ def get_summary():
 
 @app.post("/insights/predict", response_model=PredictionResponse)
 def predict(profile: StudentProfile):
-    if pipeline is None or metadata is None:
+    if catboost_model is None and pipeline is None:
         raise HTTPException(status_code=503, detail="Artifacts are missing. Train the model first.")
 
-    frame = build_input_frame(profile)
-    proba = pipeline.predict_proba(frame)[:, 1][0]
+    if catboost_model is not None:
+        frame = pd.DataFrame([{
+            "cgpa": profile.cgpa,
+            "attendance": 78,
+            "active_backlogs": 0,
+            "branch": profile.branch,
+            "ats_score": 68,
+            "aptitude_score": 65,
+            "communication_score": 65,
+            "projects": 2,
+            "internships": profile.internships,
+            "skills_count": 5,
+            "applications_count": 1,
+        }])
+        proba = catboost_model.predict_proba(frame)[:, 1][0]
+    else:
+        frame = build_input_frame(profile)
+        model = pipeline.get("model") if isinstance(pipeline, dict) else pipeline
+        proba = model.predict_proba(frame)[:, 1][0]
     placement_probability = round(float(proba) * 100, 1)
     is_placed = 1 if placement_probability >= 50 else 0
 

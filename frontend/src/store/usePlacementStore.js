@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { createApplication, listApplications, updateApplicationStatus } from '../services/applicationService';
 import { getSession, loginAs } from '../services/authService';
 import { createCompany, deleteCompany, duplicateCompany, listCompanies, updateCompany } from '../services/companyService';
-import { getDataMode, hydrateFromOnline } from '../services/dbService';
+import { getDataMode, hydrateFromOnline, loadDb, saveDb } from '../services/dbService';
 import { importMigrationData, normalizeMigrationRows } from '../services/migrationService';
 import { setMode } from '../services/modeService';
 import { listStudents, enrichStudentsWithPlacement, updateStudentProfile as persistStudentProfile } from '../services/studentService';
@@ -37,12 +37,20 @@ function buildViewState() {
     };
   });
 
+  const activeStudentId = auth.role === 'student'
+    ? students.find((student) => student.id === auth.userId)?.id ||
+      students.find((student) => String(student.email || '').toLowerCase() === String(auth.email || '').toLowerCase())?.id ||
+      students[0]?.id ||
+      auth.userId ||
+      null
+    : students[0]?.id || null;
+
   return {
     auth,
     role: auth.role,
     dataMode: getDataMode(),
     lastRefreshedAt: new Date().toISOString(),
-    currentStudentId: auth.role === 'student' ? auth.userId : students[0]?.id || null,
+    currentStudentId: activeStudentId,
     students,
     companies,
     applications,
@@ -196,12 +204,13 @@ export const usePlacementStore = create((set, get) => ({
     get().refreshData();
   },
 
-  runMigrationImportFromRows: (rows, source) => {
+  runMigrationImportFromRows: (rows, source, mode = 'replace') => {
     const normalized = normalizeMigrationRows(rows || []);
     importMigrationData({
       students: normalized.students,
       companies: normalized.companies,
       applications: normalized.applications,
+      mode,
     });
 
     set({
@@ -219,6 +228,26 @@ export const usePlacementStore = create((set, get) => ({
     });
     get().refreshData();
     return normalized;
+  },
+
+  resetPlacementData: () => {
+    const db = loadDb();
+    saveDb({
+      ...db,
+      students: [],
+      companies: [],
+      applications: [],
+    });
+    set({
+      migrationPreviewRows: [],
+      migrationSource: null,
+      migrationErrors: [],
+      migrationStats: null,
+      campusPrediction: null,
+      studentPrediction: null,
+      studentSkillSuggestions: [],
+    });
+    get().refreshData();
   },
 
   setCampusPrediction: (campusPrediction) => set({ campusPrediction }),

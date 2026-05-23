@@ -88,10 +88,12 @@ export async function login(role, email, password) {
     return { ok: false, error: 'Invalid email or password' };
   }
 
+  let nextDb = { ...db };
+
   // Use actual demo credentials for email, not hardcoded values
   const nextAuth =
     role === 'student'
-      ? { 
+      ? {
           role: 'student', 
           userId: 'stu_01', 
           name: 'Demo Student', 
@@ -112,7 +114,35 @@ export async function login(role, email, password) {
           demoMode: true,
         };
 
-  const result = saveDb({ ...db, auth: nextAuth });
+  if (role === 'student' && !nextDb.students?.some((student) => student.id === 'stu_01')) {
+    nextDb = {
+      ...nextDb,
+      students: [
+        ...(nextDb.students || []),
+        {
+          id: 'stu_01',
+          name: 'Demo Student',
+          email: expectedCredentials.email,
+          enrollment: 'DEMO-STUDENT-001',
+          branch: 'CSE',
+          cgpa: 8.1,
+          attendance: 86,
+          activeBacklogs: 0,
+          resumeUploaded: true,
+          resumeScore: 76,
+          atsScore: 76,
+          aptitudeScore: 72,
+          communicationScore: 70,
+          skills: ['React', 'SQL', 'DSA', 'Git'],
+          projects: 3,
+          internships: 1,
+          status: 'Applied',
+        },
+      ],
+    };
+  }
+
+  const result = saveDb({ ...nextDb, auth: nextAuth });
   return { ok: true, auth: result.auth };
 }
 
@@ -183,12 +213,60 @@ export async function signup(email, password, profileData) {
 
 export function loginAs(role) {
   const db = loadDb();
+  let nextDb = { ...db };
+
   const nextAuth =
     role === 'student'
-      ? { role: 'student', userId: 'stu_01', name: 'Aarav Sharma', email: 'aarav@college.edu' }
-      : { role: 'admin', userId: 'admin_01', name: 'TPO Admin', email: 'tpo@placify.edu' };
+      ? {
+          role: 'student',
+          userId: 'stu_01',
+          name: 'Demo Student',
+          email: DEMO_CREDENTIALS.student.email,
+          phone: '',
+          cgpa: 8.1,
+          interests: [],
+          activeBacklogs: 0,
+          supabaseUser: false,
+          demoMode: true,
+        }
+      : {
+          role: 'admin',
+          userId: 'admin_01',
+          name: 'TPO Admin',
+          email: DEMO_CREDENTIALS.admin.email,
+          supabaseUser: false,
+          demoMode: true,
+        };
 
-  return saveDb({ ...db, auth: nextAuth }).auth;
+  if (role === 'student' && !nextDb.students?.some((student) => student.id === 'stu_01')) {
+    nextDb = {
+      ...nextDb,
+      students: [
+        ...(nextDb.students || []),
+        {
+          id: 'stu_01',
+          name: 'Demo Student',
+          email: DEMO_CREDENTIALS.student.email,
+          enrollment: 'DEMO-STUDENT-001',
+          branch: 'CSE',
+          cgpa: 8.1,
+          attendance: 86,
+          activeBacklogs: 0,
+          resumeUploaded: true,
+          resumeScore: 76,
+          atsScore: 76,
+          aptitudeScore: 72,
+          communicationScore: 70,
+          skills: ['React', 'SQL', 'DSA', 'Git'],
+          projects: 3,
+          internships: 1,
+          status: 'Applied',
+        },
+      ],
+    };
+  }
+
+  return saveDb({ ...nextDb, auth: nextAuth }).auth;
 }
 
 export async function logout() {

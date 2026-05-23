@@ -25,6 +25,19 @@ import { importRowsFromGoogleSheetUrl, normalizeMigrationRows, parseTabularFile 
 import { buildOperationalIntelligence } from '../services/placementIntelligenceService';
 import { usePlacementStore } from '../store/usePlacementStore';
 
+const AI_PROCESSING_STAGES = [
+  'AI analyzing placement dataset...',
+  'Mapping columns',
+  'Normalizing data',
+  'Finding missing values',
+  'Detecting student patterns',
+  'Generating intelligence insights',
+];
+
+const delay = (ms) => new Promise((resolve) => {
+  window.setTimeout(resolve, ms);
+});
+
 function Metric({ label, value, icon, tone = 'slate' }) {
   const tones = {
     slate: 'border-[var(--pf-border)] bg-white/60 text-[var(--pf-text)] dark:bg-white/[0.04]',
@@ -52,6 +65,47 @@ function LoadingState() {
         <div key={item} className='h-24 animate-pulse rounded-2xl border border-[var(--pf-border)] bg-white/60 dark:bg-white/[0.04]' />
       ))}
     </div>
+  );
+}
+
+function IntelligenceProcessing({ stageIndex, source }) {
+  const progress = Math.round(((stageIndex + 1) / AI_PROCESSING_STAGES.length) * 100);
+
+  return (
+    <section className='rounded-[30px] border border-[var(--pf-border)] bg-[var(--pf-surface-strong)] p-5 shadow-[var(--pf-shadow)] backdrop-blur-xl'>
+      <div className='flex flex-wrap items-center justify-between gap-4'>
+        <div className='flex items-center gap-3'>
+          <span className='relative grid h-12 w-12 place-items-center rounded-2xl bg-sky-100 text-sky-600 dark:bg-sky-400/10 dark:text-sky-200'>
+            <Loader2 className='h-5 w-5 animate-spin' />
+            <span className='absolute inset-0 rounded-2xl border border-sky-300/30 animate-pulse' />
+          </span>
+          <div>
+            <p className='text-sm font-semibold text-[var(--pf-text)]'>{AI_PROCESSING_STAGES[stageIndex]}</p>
+            <p className='mt-1 text-xs text-[var(--pf-muted)]'>{source || 'Preparing dataset'} · {progress}% complete</p>
+          </div>
+        </div>
+        <span className='rounded-full border border-sky-300/25 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-400/10 dark:text-sky-100'>
+          Intelligence pipeline
+        </span>
+      </div>
+      <div className='mt-5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10'>
+        <div className='h-full rounded-full bg-gradient-to-r from-sky-400 via-teal-300 to-emerald-300 transition-all duration-500' style={{ width: `${progress}%` }} />
+      </div>
+      <div className='mt-4 grid gap-2 md:grid-cols-3'>
+        {AI_PROCESSING_STAGES.map((stage, index) => (
+          <div
+            key={stage}
+            className={`rounded-2xl border px-3 py-2 text-xs transition ${
+              index <= stageIndex
+                ? 'border-emerald-300/25 bg-emerald-50 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-100'
+                : 'border-[var(--pf-border)] bg-white/55 text-[var(--pf-muted)] dark:bg-white/[0.035]'
+            }`}
+          >
+            {stage}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -113,6 +167,9 @@ export default function MigrationPage() {
   const [pendingRows, setPendingRows] = useState([]);
   const [pendingSource, setPendingSource] = useState('');
   const [lastBackendPreview, setLastBackendPreview] = useState(null);
+  const [processingStage, setProcessingStage] = useState(-1);
+  const [processingSource, setProcessingSource] = useState('');
+  const [importMode, setImportMode] = useState('replace');
 
   const visibleRows = pendingRows.length ? pendingRows : migrationPreviewRows;
   const normalized = useMemo(() => normalizeMigrationRows(visibleRows), [visibleRows]);
@@ -138,15 +195,28 @@ export default function MigrationPage() {
     setSuccessMessage('');
   };
 
+  const runIntelligencePreview = async (rows, source, backendPreview = null) => {
+    setProcessingSource(source);
+    for (let index = 0; index < AI_PROCESSING_STAGES.length; index += 1) {
+      setProcessingStage(index);
+      await delay(index === 0 ? 260 : 340);
+    }
+    setPreview(rows, source, backendPreview);
+    setProcessingStage(-1);
+    setProcessingSource('');
+  };
+
   const parseImportFile = async (file) => {
     try {
       setLoading(true);
       setSheetError('');
       const rows = await parseTabularFile(file);
       if (!rows.length) throw new Error('No rows were found in this file.');
-      setPreview(rows, file.name);
+      await runIntelligencePreview(rows, file.name);
     } catch (error) {
       setSheetError(error.message || 'Failed to parse file.');
+      setProcessingStage(-1);
+      setProcessingSource('');
     } finally {
       setLoading(false);
     }
@@ -157,9 +227,11 @@ export default function MigrationPage() {
       setLoading(true);
       setSheetError('');
       const payload = await importRowsFromGoogleSheetUrl(sheetUrl);
-      setPreview(payload.rows, payload.sourceName, payload.backendPreview || null);
+      await runIntelligencePreview(payload.rows, payload.sourceName, payload.backendPreview || null);
     } catch (error) {
       setSheetError(error.message || 'Failed to import sheet data.');
+      setProcessingStage(-1);
+      setProcessingSource('');
     } finally {
       setLoading(false);
     }
@@ -167,11 +239,11 @@ export default function MigrationPage() {
 
   const confirmImport = () => {
     if (!pendingRows.length) return;
-    const result = runMigrationImportFromRows(pendingRows, pendingSource);
+    const result = runMigrationImportFromRows(pendingRows, pendingSource, importMode);
     setPendingRows([]);
     setPendingSource('');
     setLastBackendPreview(null);
-    setSuccessMessage(`Imported ${pendingRows.length} row(s), created ${result.students.length} student record(s), and detected ${result.companies.length} drive(s).`);
+    setSuccessMessage(`${importMode === 'replace' ? 'Replaced dashboard data with' : 'Merged'} ${pendingRows.length} row(s), created ${result.students.length} student record(s), and detected ${result.companies.length} drive(s).`);
   };
 
   const clearPreview = () => {
@@ -196,8 +268,8 @@ export default function MigrationPage() {
     <PageContainer className='space-y-6'>
       <section className='flex flex-wrap items-end justify-between gap-4'>
         <div>
-          <p className='text-sm font-medium text-[var(--pf-muted)]'>Import Student Data</p>
-          <h1 className='mt-2 text-3xl font-semibold tracking-tight text-[var(--pf-text)]'>Paste a sheet. Get a dashboard.</h1>
+          <p className='text-sm font-medium text-[var(--pf-muted)]'>AI Data Ingestion</p>
+          <h1 className='mt-2 text-3xl font-semibold tracking-tight text-[var(--pf-text)]'>Import data. Generate intelligence.</h1>
           <p className='mt-2 max-w-2xl text-sm leading-6 text-[var(--pf-muted)]'>
             Upload Excel/CSV files or paste a public Google Sheets link. Placify maps columns, removes duplicates,
             and updates your dashboard instantly.
@@ -216,10 +288,40 @@ export default function MigrationPage() {
             </Button>
             <Button onClick={confirmImport} disabled={!importReady}>
               <DatabaseBackup className='h-4 w-4' />
-              Commit data
+              {importMode === 'replace' ? 'Replace dashboard' : 'Merge data'}
             </Button>
           </div>
         ) : null}
+      </section>
+
+      <section className='rounded-[28px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-4 shadow-[var(--pf-shadow)]'>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <div>
+            <h2 className='text-sm font-semibold text-[var(--pf-text)]'>Import behavior</h2>
+            <p className='mt-1 text-xs leading-5 text-[var(--pf-muted)]'>
+              Use replace for clean demos. Use merge only when you intentionally want to add a second batch to existing data.
+            </p>
+          </div>
+          <div className='grid grid-cols-2 gap-1 rounded-2xl border border-[var(--pf-border)] bg-white/55 p-1 dark:bg-white/[0.04]'>
+            {[
+              ['replace', 'Replace current data'],
+              ['merge', 'Merge with existing'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type='button'
+                onClick={() => setImportMode(value)}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                  importMode === value
+                    ? 'bg-sky-500 text-white shadow-sm'
+                    : 'text-[var(--pf-muted)] hover:bg-white/70 hover:text-[var(--pf-text)] dark:hover:bg-white/10'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className='grid gap-3 md:grid-cols-4'>
@@ -337,7 +439,8 @@ export default function MigrationPage() {
         </div>
       ) : null}
 
-      {loading ? <LoadingState /> : null}
+      {processingStage >= 0 ? <IntelligenceProcessing stageIndex={processingStage} source={processingSource || sheetUrl || 'Uploaded file'} /> : null}
+      {loading && processingStage < 0 ? <LoadingState /> : null}
 
       <section className='grid gap-4 md:grid-cols-2 xl:grid-cols-5'>
         <Metric label='Rows parsed' value={visibleRows.length} icon={Rows3} tone='sky' />
@@ -416,7 +519,7 @@ export default function MigrationPage() {
           {pendingRows.length ? (
             <Button onClick={confirmImport} disabled={!importReady}>
               <DatabaseBackup className='h-4 w-4' />
-              Commit to dashboard
+              {importMode === 'replace' ? 'Replace dashboard data' : 'Merge into dashboard'}
             </Button>
           ) : null}
         </div>

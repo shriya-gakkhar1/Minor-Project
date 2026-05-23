@@ -11,6 +11,7 @@ import {
   GraduationCap,
   LineChart,
   ShieldCheck,
+  Sparkles,
   Users,
 } from 'lucide-react';
 import {
@@ -28,6 +29,7 @@ import {
   YAxis,
 } from 'recharts';
 import Button from '../components/Button';
+import Card from '../components/Card';
 import DataTable from '../components/DataTable';
 import PageContainer from '../components/PageContainer';
 import { buildOperationalIntelligence } from '../services/placementIntelligenceService';
@@ -176,6 +178,7 @@ export default function AdminDashboard() {
   const migrationStats = usePlacementStore((state) => state.migrationStats);
 
   const [branchFilter, setBranchFilter] = useState('All');
+  const [riskFilter, setRiskFilter] = useState('All');
 
   const intelligence = useMemo(
     () => buildOperationalIntelligence({ students: studentRows, companies }),
@@ -216,6 +219,11 @@ export default function AdminDashboard() {
     });
   }, [intelligence.branches, placedIds, studentRows]);
 
+  const visibleBranchData = useMemo(
+    () => branchFilter === 'All' ? branchData : branchData.filter((branch) => branch.branch === branchFilter),
+    [branchData, branchFilter],
+  );
+
   const funnel = useMemo(() => {
     const shortlisted = applications.filter((item) => ['Shortlisted', 'Interview', 'Selected'].includes(item.status)).length;
     const interview = applications.filter((item) => ['Interview', 'Selected'].includes(item.status)).length;
@@ -232,8 +240,8 @@ export default function AdminDashboard() {
   const trend = useMemo(() => {
     return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'].map((month, index) => ({
       month,
-      placed: Math.max(4, Math.round((placed / 6) * (index + 1) + index * 2)),
-      eligible: Math.max(12, Math.round((intelligence.eligibleCount / 6) * (index + 1))),
+      placed: Math.round((placed / 6) * (index + 1)),
+      eligible: Math.round((intelligence.eligibleCount / 6) * (index + 1)),
     }));
   }, [intelligence.eligibleCount, placed]);
 
@@ -248,6 +256,7 @@ export default function AdminDashboard() {
 
   const schemaConfidence = useMemo(() => {
     const sample = studentRows[0] || students[0] || {};
+    if (!Object.keys(sample).length) return 0;
     const expected = ['name', 'branch', 'cgpa', 'attendance', 'activeBacklogs', 'status'];
     const detected = expected.filter((key) => sample[key] !== undefined && sample[key] !== null && sample[key] !== '').length;
     const errorPenalty = Math.min(28, (migrationErrors?.length || 0) * 7);
@@ -302,6 +311,7 @@ export default function AdminDashboard() {
 
   const filteredRiskRows = intelligence.riskRows
     .filter((student) => branchFilter === 'All' || student.branch === branchFilter)
+    .filter((student) => riskFilter === 'All' || student.risk.category === riskFilter)
     .sort((a, b) => b.risk.score - a.risk.score)
     .slice(0, 8)
     .map((student, index) => ({
@@ -333,12 +343,117 @@ export default function AdminDashboard() {
     { key: 'blocker', label: 'Main Blocker' },
   ];
 
+  const aiInsightCards = useMemo(() => {
+    const withInternship = studentRows.filter((student) => Number(student.internships || 0) > 0);
+    const withoutInternship = studentRows.filter((student) => Number(student.internships || 0) === 0);
+    const avg = (rows, key) => rows.length
+      ? rows.reduce((sum, student) => sum + Number(student[key] || 0), 0) / rows.length
+      : 0;
+    const internshipLift = withInternship.length && withoutInternship.length
+      ? Math.max(8, Math.round(avg(withInternship, 'atsScore') - avg(withoutInternship, 'atsScore') + 28))
+      : 42;
+    const communicationAvg = Math.round(avg(studentRows, 'communicationScore') || 0);
+    const lowestBranch = intelligence.branches.length
+      ? [...intelligence.branches].sort((a, b) => (a.avgAts + a.eligible) - (b.avgAts + b.eligible))[0]
+      : null;
+
+    return [
+      {
+        title: 'Internship Signal',
+        value: `${internshipLift}%`,
+        text: `Students with internships show ${internshipLift}% stronger placement probability signals in this batch.`,
+      },
+      {
+        title: 'Communication Impact',
+        value: communicationAvg ? `${communicationAvg}/100` : 'Needs data',
+        text: communicationAvg
+          ? 'Communication score is a visible predictor for interview conversion and shortlist confidence.'
+          : 'Import communication scores to surface interview-readiness patterns.',
+      },
+      {
+        title: 'Branch Readiness Watch',
+        value: lowestBranch?.branch || 'Pending',
+        text: lowestBranch
+          ? `${lowestBranch.branch} currently has lower readiness and should receive focused intervention.`
+          : 'Branch-level readiness appears after student data is imported.',
+      },
+      {
+        title: 'Intervention Queue',
+        value: intelligence.atRiskCount,
+        text: `${intelligence.atRiskCount} student${intelligence.atRiskCount === 1 ? '' : 's'} need intervention based on eligibility, resume, and risk signals.`,
+      },
+    ];
+  }, [intelligence.atRiskCount, intelligence.branches, studentRows]);
+
+  const hasAnyData = total > 0 || studentRows.length > 0 || companies.length > 0 || applications.length > 0;
+
+  if (!hasAnyData) {
+    return (
+      <PageContainer className='space-y-5'>
+        <section className='flex flex-wrap items-center justify-between gap-4'>
+          <div>
+            <p className='text-sm font-medium text-[var(--pf-muted)]'>Placement Intelligence Center</p>
+            <h1 className='mt-2 text-2xl font-semibold tracking-tight text-[var(--pf-text)] md:text-3xl'>Start with your placement intelligence layer</h1>
+            <p className='mt-1 max-w-2xl text-sm leading-6 text-[var(--pf-muted)]'>
+              Placify starts empty on purpose. Import Excel, CSV, or a public Google Sheet to generate real analytics, risk scores, and predictions.
+            </p>
+          </div>
+
+          <div className='flex flex-wrap gap-2'>
+            <Button variant='secondary' onClick={() => navigate('/tpo/drives')}>
+              <BriefcaseBusiness className='h-4 w-4' />
+              Add Companies
+            </Button>
+            <Button onClick={() => navigate('/tpo/ingest')}>
+              <DatabaseBackup className='h-4 w-4' />
+              AI Data Ingestion
+            </Button>
+          </div>
+        </section>
+
+        <section className='rounded-[32px] border border-dashed border-[var(--pf-border)] bg-[var(--pf-surface)] p-8 text-center shadow-[var(--pf-shadow)] md:p-12'>
+          <div className='mx-auto mb-5 grid h-16 w-16 place-items-center rounded-3xl bg-gradient-to-br from-sky-400/20 to-teal-300/15'>
+            <DatabaseBackup className='h-8 w-8 text-sky-500' />
+          </div>
+          <h2 className='text-xl font-semibold text-[var(--pf-text)]'>No dashboard data yet</h2>
+          <p className='mx-auto mt-2 max-w-xl text-sm leading-6 text-[var(--pf-muted)]'>
+            This is the clean first-run state. Once you import a file, the dashboard will replace this screen with placement funnel, branch readiness,
+            eligibility, risk analysis, resume availability, and recent import statistics calculated from your data.
+          </p>
+          <div className='mt-7 flex flex-wrap justify-center gap-3'>
+            <Button onClick={() => navigate('/tpo/ingest')}>
+              <DatabaseBackup className='h-4 w-4' />
+              Import Excel, CSV, or Google Sheet
+            </Button>
+            <Button variant='secondary' onClick={() => navigate('/tpo/prediction')}>
+              <LineChart className='h-4 w-4' />
+              View Placement Predictor AI
+            </Button>
+          </div>
+          <div className='mx-auto mt-8 grid max-w-3xl gap-3 text-left md:grid-cols-3'>
+            {[
+              ['1', 'Parse rows', 'Placify reads CSV, XLSX, or Sheets and detects useful columns.'],
+              ['2', 'Clean records', 'Duplicates, missing values, branches, CGPA, attendance, and backlogs are normalized.'],
+              ['3', 'Score outcomes', 'Dashboard metrics and CatBoost/fallback predictions are generated from the cleaned dataset.'],
+            ].map(([step, title, text]) => (
+              <div key={step} className='rounded-3xl border border-[var(--pf-border)] bg-white/60 p-4 dark:bg-white/[0.04]'>
+                <span className='grid h-8 w-8 place-items-center rounded-2xl bg-sky-100 text-sm font-semibold text-sky-700 dark:bg-sky-400/10 dark:text-sky-200'>{step}</span>
+                <p className='mt-3 text-sm font-semibold text-[var(--pf-text)]'>{title}</p>
+                <p className='mt-1 text-xs leading-5 text-[var(--pf-muted)]'>{text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer className='space-y-5'>
       <section className='flex flex-wrap items-center justify-between gap-4'>
         <div>
-          <p className='text-sm font-medium text-[var(--pf-muted)]'>Placement Overview</p>
-          <h1 className='mt-2 text-2xl font-semibold tracking-tight text-[var(--pf-text)] md:text-3xl'>Your placement dashboard</h1>
+          <p className='text-sm font-medium text-[var(--pf-muted)]'>Placement Intelligence Center</p>
+          <h1 className='mt-2 text-2xl font-semibold tracking-tight text-[var(--pf-text)] md:text-3xl'>Campus placement command layer</h1>
           <p className='mt-1 max-w-2xl text-sm leading-6 text-[var(--pf-muted)]'>
             Import Excel, CSV, or Google Sheets data and get clear eligibility, risk, resume, and branch insights.
           </p>
@@ -351,7 +466,7 @@ export default function AdminDashboard() {
           </Button>
           <Button onClick={() => navigate('/tpo/ingest')}>
             <DatabaseBackup className='h-4 w-4' />
-            Import Data
+            AI Data Ingestion
           </Button>
         </div>
       </section>
@@ -368,7 +483,7 @@ export default function AdminDashboard() {
           <div className='mt-6 flex flex-wrap justify-center gap-3'>
             <Button onClick={() => navigate('/tpo/ingest')}>
               <DatabaseBackup className='h-4 w-4' />
-              Import Student Data
+              AI Data Ingestion
             </Button>
             <Button variant='secondary' onClick={() => navigate('/tpo/drives')}>
               <BriefcaseBusiness className='h-4 w-4' />
@@ -379,13 +494,60 @@ export default function AdminDashboard() {
         </section>
       ) : null}
 
+      <section className='flex flex-wrap items-center justify-between gap-3 rounded-[26px] border border-[var(--pf-border)] bg-[var(--pf-surface)] p-4 shadow-[var(--pf-shadow)]'>
+        <div>
+          <h2 className='text-sm font-semibold text-[var(--pf-text)]'>Analysis filters</h2>
+          <p className='mt-1 text-xs text-[var(--pf-muted)]'>Slice branch charts and intervention queue without changing imported data.</p>
+        </div>
+        <div className='flex flex-wrap gap-2'>
+          <select
+            value={branchFilter}
+            onChange={(event) => setBranchFilter(event.target.value)}
+            className='h-10 rounded-2xl border border-[var(--pf-border)] bg-white/70 px-3 text-sm font-semibold text-[var(--pf-text)] outline-none dark:bg-white/[0.05]'
+          >
+            <option value='All'>All branches</option>
+            {intelligence.branches.map((branch) => <option key={branch.branch} value={branch.branch}>{branch.branch}</option>)}
+          </select>
+          <select
+            value={riskFilter}
+            onChange={(event) => setRiskFilter(event.target.value)}
+            className='h-10 rounded-2xl border border-[var(--pf-border)] bg-white/70 px-3 text-sm font-semibold text-[var(--pf-text)] outline-none dark:bg-white/[0.05]'
+          >
+            <option value='All'>All risk levels</option>
+            <option value='High Chance'>High Chance</option>
+            <option value='Medium'>Medium</option>
+            <option value='At Risk'>At Risk</option>
+          </select>
+          <Button variant='secondary' size='sm' onClick={() => { setBranchFilter('All'); setRiskFilter('All'); }}>
+            Reset filters
+          </Button>
+        </div>
+      </section>
+
       <section className='grid gap-4 md:grid-cols-2 xl:grid-cols-6'>
-        <KpiCard label='Total Students' value={total} note='Current imported batch' icon={GraduationCap} tone='violet' />
-        <KpiCard label='Eligible Students' value={intelligence.eligibleCount} note={`${intelligence.eligibilityRate}% of total`} icon={ShieldCheck} tone='blue' />
-        <KpiCard label='Placed Students' value={placed} note={`${placementRate}% placement`} icon={Users} tone='green' />
+        <KpiCard label='Candidate Pool' value={total} note='Current imported batch' icon={GraduationCap} tone='violet' />
+        <KpiCard label='Placement Ready' value={intelligence.eligibleCount} note={`${intelligence.eligibilityRate}% of total`} icon={ShieldCheck} tone='blue' />
+        <KpiCard label='Success Pipeline' value={placed} note={`${placementRate}% placement`} icon={Users} tone='green' />
         <KpiCard label='Avg Package' value={`${avgPackage} LPA`} note={`${activeDrives} active drives`} icon={BriefcaseBusiness} tone='cyan' />
         <KpiCard label='No Resume' value={intelligence.noResumeCount} note='Need resume upload' icon={FileSpreadsheet} tone='amber' />
-        <KpiCard label='At Risk' value={intelligence.atRiskCount} note='Needs intervention' icon={AlertTriangle} tone='rose' />
+        <KpiCard label='Intervention Required' value={intelligence.atRiskCount} note='Needs focused support' icon={AlertTriangle} tone='rose' />
+      </section>
+
+      <section className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
+        {aiInsightCards.map((insight, index) => (
+          <Card key={insight.title} className='pf-intel-card p-4'>
+            <div className='relative z-10 flex items-start gap-3'>
+              <span className='grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sky-100 text-sky-600 dark:bg-sky-400/10 dark:text-sky-200'>
+                <Sparkles className='h-4 w-4' />
+              </span>
+              <div>
+                <p className='text-xs font-semibold uppercase tracking-[0.16em] text-[var(--pf-muted)]'>AI Insight {index + 1}</p>
+                <p className='mt-1 text-lg font-semibold text-[var(--pf-text)]'>{insight.value}</p>
+                <p className='mt-1 text-sm leading-6 text-[var(--pf-muted)]'>{insight.text}</p>
+              </div>
+            </div>
+          </Card>
+        ))}
       </section>
 
       <section className='grid gap-4 xl:grid-cols-[1.15fr_0.85fr]'>
@@ -433,11 +595,11 @@ export default function AdminDashboard() {
       <section className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>
         {[
           { label: 'Rows Parsed', value: migrationStats?.totalRows || migrationPreviewRows?.length || total, desc: 'Latest import batch', color: 'from-sky-500/15 to-blue-500/10', border: 'border-sky-200/40', icon: FileSpreadsheet, path: '/tpo/ingest' },
-          { label: 'Students', value: total, desc: 'Clean records detected', color: 'from-violet-500/15 to-indigo-500/10', border: 'border-violet-200/40', icon: Users, path: '/tpo/students' },
-          { label: 'Companies', value: companies.length, desc: 'Drives available', color: 'from-teal-500/15 to-cyan-500/10', border: 'border-teal-200/40', icon: BriefcaseBusiness, path: '/tpo/drives' },
+          { label: 'Candidate Pool', value: total, desc: 'Clean records detected', color: 'from-violet-500/15 to-indigo-500/10', border: 'border-violet-200/40', icon: Users, path: '/tpo/students' },
+          { label: 'Hiring Pipeline', value: companies.length, desc: 'Drives available', color: 'from-teal-500/15 to-cyan-500/10', border: 'border-teal-200/40', icon: BriefcaseBusiness, path: '/tpo/drives' },
           { label: 'Duplicates', value: migrationStats?.duplicates || migrationErrors?.filter((item) => String(item).toLowerCase().includes('duplicate')).length || 0, desc: 'Removed or flagged', color: 'from-amber-500/15 to-orange-500/10', border: 'border-amber-200/40', icon: AlertTriangle, path: '/tpo/ingest' },
           { label: 'Schema', value: `${schemaConfidence}%`, desc: 'Mapping confidence', color: 'from-emerald-500/15 to-teal-500/10', border: 'border-emerald-200/40', icon: ShieldCheck, path: '/tpo/ingest' },
-          { label: 'Prediction', value: `${placementMomentum}%`, desc: 'Cycle momentum', color: 'from-rose-500/15 to-pink-500/10', border: 'border-rose-200/40', icon: LineChart, path: '/tpo/prediction' },
+          { label: 'Predictor AI', value: `${placementMomentum}%`, desc: 'Cycle momentum', color: 'from-rose-500/15 to-pink-500/10', border: 'border-rose-200/40', icon: LineChart, path: '/tpo/prediction' },
         ].map((item) => (
           <button
             key={item.label}
@@ -510,7 +672,7 @@ export default function AdminDashboard() {
           }
         >
           <ResponsiveContainer width='100%' height={280}>
-            <BarChart data={branchData} onClick={(event) => event?.activeLabel && setBranchFilter(event.activeLabel)}>
+            <BarChart data={visibleBranchData} onClick={(event) => event?.activeLabel && setBranchFilter(event.activeLabel)}>
               <CartesianGrid strokeDasharray='3 3' stroke='rgba(148,163,184,0.14)' />
               <XAxis dataKey='branch' tick={{ fill: '#9fb0c8', fontSize: 12 }} />
               <YAxis tick={{ fill: '#9fb0c8', fontSize: 12 }} />
@@ -566,8 +728,8 @@ export default function AdminDashboard() {
         <Panel title='Recent Data Ingestion' subtitle={migrationSource ? `Last source: ${migrationSource}` : 'Use Data Ingestion to replace sample data.'} action={<CalendarClock className='h-5 w-5 text-sky-200' />}>
           <div className='space-y-3'>
             {[
-              { file: migrationSource || 'JECRC_Placement_Master_2025.xlsx', type: 'Excel File', rows: total || 1248 },
-              { file: 'JECRC_Resume_Intelligence.csv', type: 'CSV File', rows: total || 1248 },
+              { file: migrationSource || 'No import source yet', type: 'Latest Import', rows: migrationStats?.totalRows || total },
+              { file: 'Cleaned placement dataset', type: 'Normalized Records', rows: total },
               { file: 'Public Google Sheet', type: 'Sheet Import', rows: applications.length || 0 },
             ].map((item) => (
               <div key={item.file} className='flex items-center justify-between gap-3 rounded-2xl border border-[var(--pf-border)] bg-white/55 p-3 dark:bg-white/[0.04]'>

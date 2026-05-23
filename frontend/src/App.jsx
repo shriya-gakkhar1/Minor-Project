@@ -30,16 +30,26 @@ function AuthGuard({ children }) {
 
 function AdminOnly({ children }) {
   const role = usePlacementStore((state) => state.role);
+  const loginAsRole = usePlacementStore((state) => state.loginAsRole);
 
-  if (role !== 'admin') return <Navigate to='/student/dashboard' replace />;
+  useEffect(() => {
+    if (role !== 'admin') loginAsRole('admin');
+  }, [loginAsRole, role]);
+
+  if (role !== 'admin') return <div className='p-6'><Skeleton className='h-16 w-full' /></div>;
 
   return children;
 }
 
 function StudentOnly({ children }) {
   const role = usePlacementStore((state) => state.role);
+  const loginAsRole = usePlacementStore((state) => state.loginAsRole);
 
-  if (role !== 'student') return <Navigate to='/tpo/dashboard' replace />;
+  useEffect(() => {
+    if (role !== 'student') loginAsRole('student');
+  }, [loginAsRole, role]);
+
+  if (role !== 'student') return <div className='p-6'><Skeleton className='h-16 w-full' /></div>;
 
   return children;
 }

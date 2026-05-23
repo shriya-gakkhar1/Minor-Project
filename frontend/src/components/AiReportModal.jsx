@@ -41,17 +41,17 @@ export default function AiReportModal({ open, onClose, summary }) {
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4'>
-      <div className='w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl'>
+      <div className='w-full max-w-3xl rounded-[28px] border border-[var(--pf-border)] bg-[var(--pf-surface-strong)] p-5 shadow-[var(--pf-shadow)] backdrop-blur-xl'>
         <div className='mb-4 flex items-center justify-between'>
           <div>
-            <h3 className='text-lg font-semibold text-slate-900'>Generate Report</h3>
-            <p className='text-sm text-slate-500'>Paste your Gemini API key for AI report. Fallback report is available without key.</p>
+            <h3 className='text-lg font-semibold text-[var(--pf-text)]'>Generate Report</h3>
+            <p className='text-sm text-[var(--pf-muted)]'>Paste your Gemini API key for AI report. Fallback report is available without key.</p>
           </div>
           <Button variant='ghost' onClick={onClose}>Close</Button>
         </div>
 
-        <div className='rounded-xl border border-teal-100 bg-teal-50 p-4'>
-          <p className='mb-2 text-sm font-medium text-teal-700'>AI API Key</p>
+        <div className='rounded-2xl border border-teal-300/25 bg-teal-50 p-4 dark:bg-teal-300/10'>
+          <p className='mb-2 text-sm font-medium text-teal-700 dark:text-teal-100'>AI API Key</p>
           <div className='flex flex-col gap-2 md:flex-row'>
             <Input
               type='password'
@@ -62,11 +62,11 @@ export default function AiReportModal({ open, onClose, summary }) {
             <Button onClick={runReport} disabled={loading}>{loading ? 'Generating...' : 'Generate'}</Button>
             <Button variant='secondary' onClick={() => setReport(fallbackReport)}>Use Fallback</Button>
           </div>
-          {error ? <p className='mt-2 text-xs text-rose-600'>{error}</p> : null}
+          {error ? <p className='mt-2 text-xs text-rose-600 dark:text-rose-200'>{error}</p> : null}
         </div>
 
-        <div className='mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4'>
-          <pre className='max-h-[360px] overflow-auto whitespace-pre-wrap text-sm text-slate-700'>
+        <div className='mt-4 rounded-2xl border border-[var(--pf-border)] bg-white/65 p-4 dark:bg-white/[0.035]'>
+          <pre className='max-h-[360px] overflow-auto whitespace-pre-wrap text-sm text-[var(--pf-text)]'>
             {report || 'Your report preview will appear here.'}
           </pre>
         </div>

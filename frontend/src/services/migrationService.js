@@ -314,7 +314,20 @@ export function normalizeMigrationRows(rows) {
   };
 }
 
-export function importMigrationData({ students, companies, applications }) {
+function mergeByKey(existing = [], incoming = [], getKey) {
+  const map = new Map();
+  existing.forEach((item) => {
+    const key = getKey(item);
+    if (key) map.set(key, item);
+  });
+  incoming.forEach((item) => {
+    const key = getKey(item);
+    if (key) map.set(key, { ...(map.get(key) || {}), ...item });
+  });
+  return Array.from(map.values());
+}
+
+export function importMigrationData({ students, companies, applications, mode = 'replace' }) {
   const db = loadDb();
 
   const dedupedStudents = [];
@@ -335,8 +348,12 @@ export function importMigrationData({ students, companies, applications }) {
     dedupedCompanies.push(company);
   });
 
-  const effectiveStudents = dedupedStudents.length ? dedupedStudents : db.students;
-  const effectiveCompanies = dedupedCompanies.length ? dedupedCompanies : db.companies;
+  const effectiveStudents = mode === 'merge'
+    ? mergeByKey(db.students, dedupedStudents, (student) => normalizeText(student.email || student.id).toLowerCase())
+    : dedupedStudents.length ? dedupedStudents : db.students;
+  const effectiveCompanies = mode === 'merge'
+    ? mergeByKey(db.companies, dedupedCompanies, (company) => `${normalizeText(company.name).toLowerCase()}::${normalizeText(company.role).toLowerCase()}`)
+    : dedupedCompanies.length ? dedupedCompanies : db.companies;
 
   const studentIds = new Set(effectiveStudents.map((student) => student.id));
   const companyIds = new Set(effectiveCompanies.map((company) => company.id));
@@ -351,11 +368,13 @@ export function importMigrationData({ students, companies, applications }) {
     dedupedApplications.push(application);
   });
 
-  const nextApplications = dedupedApplications.length
-    ? dedupedApplications
-    : dedupedStudents.length || dedupedCompanies.length
-      ? []
-      : db.applications;
+  const nextApplications = mode === 'merge'
+    ? mergeByKey(db.applications, dedupedApplications, (application) => `${application.studentId}::${application.companyId}`)
+    : dedupedApplications.length
+      ? dedupedApplications
+      : dedupedStudents.length || dedupedCompanies.length
+        ? []
+        : db.applications;
 
   const nextState = {
     ...db,

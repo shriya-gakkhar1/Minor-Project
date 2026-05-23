@@ -1,5 +1,6 @@
 const express = require('express');
 const { buildInstitutionalIntelligence } = require('../services/institutionalIntelligenceEngine');
+const { getMlStatus } = require('../services/mlPredictionClient');
 const { buildPredictionSummary } = require('../services/placementPredictionEngine');
 
 const router = express.Router();
@@ -18,8 +19,22 @@ function build(req, res) {
 
 router.post('/ops', build);
 
-router.get('/prediction-summary', (req, res) => {
-  return res.json(buildPredictionSummary());
+router.get('/prediction-summary', async (req, res) => {
+  const summary = buildPredictionSummary();
+  const mlStatus = await getMlStatus();
+  return res.json({
+    ...summary,
+    activeModel: mlStatus.active_model || summary.activeModel,
+    preferredModel: mlStatus.preferred_model || summary.preferredModel,
+    catBoost: {
+      ...summary.catBoost,
+      status: mlStatus.active_model === 'catboost-tabular-v1' ? 'active' : summary.catBoost.status,
+      artifactPresent: Boolean(mlStatus.catboost_artifact_present),
+      available: Boolean(mlStatus.catboost_available),
+      fallbackReady: Boolean(mlStatus.fallback_ready),
+      error: mlStatus.error,
+    },
+  });
 });
 
 router.post('/eligibility', (req, res) => {

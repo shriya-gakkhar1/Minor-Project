@@ -36,22 +36,22 @@ function DemoPreviewCard() {
       <div className='flex items-center justify-between'>
         <div>
           <p className='text-sm font-semibold text-[var(--pf-text)]'>Placement Overview</p>
-          <p className='text-xs text-[var(--pf-muted)]'>Generated after importing student data</p>
+          <p className='text-xs text-[var(--pf-muted)]'>Preview after importing student data</p>
         </div>
         <span className='rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200'>
-          Ready
+          Sample
         </span>
       </div>
 
       <div className='mt-5 grid gap-3 sm:grid-cols-3'>
         {[
-          ['Students', '1,248'],
-          ['Eligible', '742'],
-          ['At Risk', '214'],
+          ['Students', 'After import'],
+          ['Eligible', 'Auto-calculated'],
+          ['At Risk', 'Predicted'],
         ].map(([label, value]) => (
           <div key={label} className='rounded-3xl border border-[var(--pf-border)] bg-white/70 p-4 dark:bg-white/5'>
             <p className='text-xs text-[var(--pf-muted)]'>{label}</p>
-            <p className='mt-2 text-2xl font-semibold text-[var(--pf-text)]'>{value}</p>
+            <p className='mt-2 text-lg font-semibold text-[var(--pf-text)]'>{value}</p>
           </div>
         ))}
       </div>

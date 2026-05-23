@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { getNavItemsForRole } from '../components/navigationConfig';
 import Topbar from '../components/Topbar';
-import { cn } from '../lib/utils';
 import { usePlacementStore } from '../store/usePlacementStore';
 
 function getInitialTheme() {
@@ -18,6 +17,8 @@ export default function AppShell() {
   const auth = usePlacementStore((state) => state.auth);
   const lastRefreshedAt = usePlacementStore((state) => state.lastRefreshedAt);
   const triggerRealtimeRefresh = usePlacementStore((state) => state.triggerRealtimeRefresh);
+  const resetPlacementData = usePlacementStore((state) => state.resetPlacementData);
+  const loginAsRole = usePlacementStore((state) => state.loginAsRole);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState(getInitialTheme);
 
@@ -44,61 +45,22 @@ export default function AppShell() {
         auth={auth}
         lastRefreshedAt={lastRefreshedAt}
         onRefresh={triggerRealtimeRefresh}
+        onResetData={role === 'admin' ? resetPlacementData : null}
+        onSwitchRole={(nextRole) => loginAsRole(nextRole)}
         onMenuToggle={() => setIsMobileMenuOpen((value) => !value)}
         theme={theme}
         onThemeToggle={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
       />
 
-      <div className='flex min-h-[calc(100vh-96px)]'>
-        {/* Sidebar — visible on lg+ */}
-        <aside className='hidden w-[220px] shrink-0 border-r border-[var(--pf-border)] bg-[var(--pf-surface-strong)] backdrop-blur-xl lg:block'>
-          <nav className='space-y-1 p-3 pt-4'>
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end
-                  className={({ isActive }) =>
-                    cn(
-                      'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                      isActive
-                        ? 'bg-gradient-to-r from-sky-400/20 to-teal-300/15 text-sky-700 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.3)] dark:text-teal-100'
-                        : 'text-slate-500 hover:bg-white/[0.07] hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100',
-                    )
-                  }
-                >
-                  <Icon className='h-4 w-4 shrink-0 transition-transform duration-200 group-hover:scale-105' />
-                  <span className='truncate'>{item.label}</span>
-                </NavLink>
-              );
-            })}
-          </nav>
-
-          <div className='absolute bottom-4 left-0 w-[220px] px-3'>
-            <div className='rounded-2xl border border-[var(--pf-border)] bg-white/[0.035] p-3'>
-              <p className='text-xs font-semibold uppercase tracking-wide text-slate-500'>
-                {role === 'admin' ? 'TPO Workflow' : 'Student Workflow'}
-              </p>
-              <p className='mt-1 text-xs text-[var(--pf-muted)]'>
-                {role === 'admin'
-                  ? 'Import → Analyze → Report'
-                  : 'Profile → Predict → Apply'}
-              </p>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <main className='min-w-0 flex-1 overflow-x-hidden'>
+      <div className='min-h-[calc(100vh-96px)]'>
+        <main className='min-w-0 overflow-x-hidden'>
           <Outlet />
         </main>
       </div>
 
       {/* Mobile menu overlay */}
       {isMobileMenuOpen ? (
-        <div className='fixed inset-0 z-50 lg:hidden'>
+        <div className='fixed inset-0 z-50 xl:hidden'>
           <button
             type='button'
             onClick={() => setIsMobileMenuOpen(false)}

@@ -35,17 +35,18 @@
   --color-danger-surface: rgba(251, 113, 133, 0.12);
 }
 
+html.dark,
 .dark {
-  --pf-bg: #030712;
-  --pf-bg-2: #07111f;
-  --pf-surface: rgba(9, 17, 32, 0.76);
-  --pf-surface-strong: rgba(10, 18, 32, 0.94);
-  --pf-surface-soft: rgba(15, 27, 48, 0.72);
-  --pf-surface-raised: rgba(16, 28, 49, 0.86);
+  --pf-bg: #050814;
+  --pf-bg-2: #090f1f;
+  --pf-surface: rgba(14, 22, 38, 0.88);
+  --pf-surface-strong: rgba(13, 20, 35, 0.96);
+  --pf-surface-soft: rgba(17, 26, 43, 0.84);
+  --pf-surface-raised: rgba(18, 28, 46, 0.92);
   --pf-text: #f8fbff;
   --pf-muted: #94a9c8;
-  --pf-border: rgba(134, 164, 211, 0.18);
-  --pf-border-strong: rgba(94, 234, 212, 0.32);
+  --pf-border: rgba(134, 164, 211, 0.16);
+  --pf-border-strong: rgba(94, 234, 212, 0.28);
   --pf-accent: #38bdf8;
   --pf-accent-soft: rgba(56, 189, 248, 0.14);
   --pf-secondary: #5eead4;
@@ -53,7 +54,7 @@
   --pf-danger: #fb7185;
   --pf-success: #34d399;
   --pf-warning: #fbbf24;
-  --pf-shadow: 0 22px 90px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  --pf-shadow: 0 24px 70px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.035);
   --pf-glow-cyan: rgba(56, 189, 248, 0.24);
   --pf-glow-teal: rgba(94, 234, 212, 0.18);
   --pf-grid-line: rgba(148, 163, 184, 0.075);
@@ -83,12 +84,12 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+html.dark body,
 .dark body {
   background:
-    radial-gradient(circle at 15% -12%, rgba(45, 212, 191, 0.18), transparent 34rem),
-    radial-gradient(circle at 82% 0%, rgba(59, 130, 246, 0.16), transparent 32rem),
-    radial-gradient(circle at 50% 105%, rgba(124, 58, 237, 0.12), transparent 38rem),
-    linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(3, 7, 18, 0.985) 46%, rgba(7, 17, 31, 0.98)),
+    radial-gradient(circle at 18% -10%, rgba(45, 212, 191, 0.12), transparent 34rem),
+    radial-gradient(circle at 82% 0%, rgba(59, 130, 246, 0.1), transparent 32rem),
+    linear-gradient(180deg, rgba(5, 8, 20, 0.99), rgba(6, 10, 23, 0.99) 46%, rgba(9, 15, 31, 0.99)),
     var(--pf-bg);
 }
 
@@ -170,6 +171,15 @@ textarea {
     var(--pf-bg);
 }
 
+html.dark .pf-shell-bg,
+.dark .pf-shell-bg {
+  background:
+    radial-gradient(circle at 12% -12%, rgba(34, 211, 238, 0.08), transparent 28rem),
+    radial-gradient(circle at 92% -10%, rgba(59, 130, 246, 0.07), transparent 30rem),
+    linear-gradient(180deg, rgba(5, 8, 20, 0.98), rgba(7, 11, 24, 0.99)),
+    var(--pf-bg);
+}
+
 .pf-shell-bg::before {
   content: '';
   position: fixed;
@@ -195,6 +205,11 @@ textarea {
   opacity: 0.75;
 }
 
+html.dark .pf-shell-bg::after,
+.dark .pf-shell-bg::after {
+  opacity: 0.16;
+}
+
 .pf-float {
   animation: drift 3.8s ease-in-out infinite;
 }
@@ -203,11 +218,55 @@ main > div {
   animation: rise-in 260ms ease-out;
 }
 
+html.dark .pf-shell-bg table,
+html.dark .pf-shell-bg select,
+html.dark .pf-shell-bg input,
+html.dark .pf-shell-bg textarea,
 .dark .pf-shell-bg table,
 .dark .pf-shell-bg select,
 .dark .pf-shell-bg input,
 .dark .pf-shell-bg textarea {
   color-scheme: dark;
+}
+
+html.dark select option,
+.dark select option {
+  background: #07111f;
+  color: #f8fbff;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder,
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b;
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea,
+.dark input,
+.dark select,
+.dark textarea {
+  caret-color: #5eead4;
+}
+
+.recharts-default-tooltip {
+  border-radius: 14px !important;
+  border: 1px solid var(--pf-border) !important;
+  background: var(--pf-surface-strong) !important;
+  color: var(--pf-text) !important;
+  box-shadow: var(--pf-shadow) !important;
+}
+
+.recharts-tooltip-label,
+.recharts-tooltip-item {
+  color: var(--pf-text) !important;
 }
 
 .theme-transition,
@@ -240,12 +299,12 @@ main > div {
     var(--pf-surface-raised);
 }
 
+html.dark .pf-live-card,
 .dark .pf-live-card {
   background:
-    linear-gradient(135deg, rgba(16, 29, 52, 0.92), rgba(7, 15, 29, 0.74)),
-    radial-gradient(circle at 15% 0%, rgba(56, 189, 248, 0.12), transparent 18rem),
-    radial-gradient(circle at 90% 10%, rgba(94, 234, 212, 0.08), transparent 17rem);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(148, 163, 184, 0.04) inset;
+    linear-gradient(135deg, rgba(18, 28, 46, 0.96), rgba(10, 18, 32, 0.92)),
+    radial-gradient(circle at 15% 0%, rgba(56, 189, 248, 0.08), transparent 18rem);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(148, 163, 184, 0.04) inset;
 }
 
 .pf-live-card::before {
@@ -258,6 +317,25 @@ main > div {
     linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 28%);
   transform: translateX(-110%);
   animation: data-scan 4.8s ease-in-out infinite;
+}
+
+.pf-intel-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.pf-intel-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), transparent 38%, rgba(94, 234, 212, 0.06));
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.pf-intel-card:hover::after {
+  opacity: 1;
 }
 
 .pf-market-grid {
