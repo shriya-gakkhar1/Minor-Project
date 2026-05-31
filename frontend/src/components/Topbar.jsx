@@ -1,4 +1,4 @@
-import { Database, LogOut, Menu, Moon, RefreshCw, RotateCcw, ShieldCheck, Sun, UserRound } from 'lucide-react';
+import { Command, Database, LogOut, Menu, Moon, RefreshCw, RotateCcw, ShieldCheck, Sun, UserRound } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../services/authService';
 import Button from './Button';
@@ -17,7 +17,7 @@ const pageTitles = {
   '/student/profile': 'Profile Intelligence',
 };
 
-export default function Topbar({ role, auth, lastRefreshedAt, onRefresh, onResetData, onSwitchRole, onMenuToggle, theme, onThemeToggle }) {
+export default function Topbar({ role, auth, lastRefreshedAt, onRefresh, onResetData, onSwitchRole, onCommandOpen, onMenuToggle, theme, onThemeToggle }) {
   const location = useLocation();
   const navigate = useNavigate();
   const title = pageTitles[location.pathname] || 'Placify';
@@ -80,6 +80,19 @@ export default function Topbar({ role, auth, lastRefreshedAt, onRefresh, onReset
         </nav>
 
         <div className='flex items-center gap-2'>
+          {onCommandOpen ? (
+            <button
+              type='button'
+              onClick={onCommandOpen}
+              className='hidden items-center gap-2 rounded-2xl border border-[var(--pf-border)] bg-white/60 px-3 py-2 text-xs font-medium text-slate-500 transition hover:-translate-y-0.5 hover:text-slate-900 hover:shadow-md dark:bg-white/5 dark:text-slate-400 dark:hover:text-white sm:inline-flex'
+              title='Search actions (Ctrl/Cmd + K)'
+            >
+              <Command className='h-3.5 w-3.5' />
+              <span className='hidden md:inline'>Search</span>
+              <kbd className='hidden rounded border border-[var(--pf-border)] bg-[var(--pf-surface)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--pf-muted)] md:inline'>⌘K</kbd>
+            </button>
+          ) : null}
+
           <button
             type='button'
             onClick={onThemeToggle}

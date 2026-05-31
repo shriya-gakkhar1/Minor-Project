@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import CommandPalette from '../components/CommandPalette';
 import { getNavItemsForRole } from '../components/navigationConfig';
 import Topbar from '../components/Topbar';
 import { usePlacementStore } from '../store/usePlacementStore';
@@ -20,6 +21,7 @@ export default function AppShell() {
   const resetPlacementData = usePlacementStore((state) => state.resetPlacementData);
   const loginAsRole = usePlacementStore((state) => state.loginAsRole);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [theme, setTheme] = useState(getInitialTheme);
 
   const navItems = useMemo(() => getNavItemsForRole(role), [role]);
@@ -38,6 +40,17 @@ export default function AppShell() {
     void triggerRealtimeRefresh();
   }, [triggerRealtimeRefresh]);
 
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setIsPaletteOpen((value) => !value);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div className='pf-shell-bg min-h-screen text-[var(--pf-text)]'>
       <Topbar
@@ -47,6 +60,7 @@ export default function AppShell() {
         onRefresh={triggerRealtimeRefresh}
         onResetData={role === 'admin' ? resetPlacementData : null}
         onSwitchRole={(nextRole) => loginAsRole(nextRole)}
+        onCommandOpen={() => setIsPaletteOpen(true)}
         onMenuToggle={() => setIsMobileMenuOpen((value) => !value)}
         theme={theme}
         onThemeToggle={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
@@ -57,6 +71,8 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      <CommandPalette open={isPaletteOpen} onClose={() => setIsPaletteOpen(false)} role={role} />
 
       {/* Mobile menu overlay */}
       {isMobileMenuOpen ? (

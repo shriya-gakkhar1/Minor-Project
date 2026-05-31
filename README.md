@@ -17,13 +17,17 @@ It is built to be simple to run in VS Code and safe for demos. The app works in 
 ## Project Structure
 
 ```text
-Minor-Project-main/
+placify-ai/
   backend/        Express API for ingestion, intelligence, reports, resume parsing, matching, interviews
-  frontend/       React + Vite app
+  frontend/       React + Vite app (the application you run)
+  ml/             FastAPI prediction service + trained CatBoost artifacts and notebooks
   sample data/    Ready-to-use JECRC-style sample CSV/XLSX files
-  ml/             Existing ML/demo assets from the original project
+  data/           Raw and processed data sources
+  docs/           Demo runbook, presentation, and viva notes
+  scripts/        Helper scripts (e.g. demo sample data generator)
   notebooks/      Existing notebooks from the original project
   ARCHITECTURE.md Detailed data model, API, and production migration notes
+  FEATURES.md     Complete feature walkthrough for both TPO and student roles
 ```
 
 ## Requirements
